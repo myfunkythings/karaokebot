@@ -112,7 +112,6 @@ function getRowClassName(row: QueueRowData, isDragging = false) {
 function QueueTableRowCells({
   row,
   dragHandle,
-  isLeadQueuedRow,
   canManage,
   editingRequestId,
   setEditingRequestId,
@@ -125,7 +124,6 @@ function QueueTableRowCells({
 }: QueueRowActions & {
   row: QueueRowData;
   dragHandle: ReactNode;
-  isLeadQueuedRow: boolean;
 }) {
   const isCurrent = row.status === "current";
   const canReorder = !isCurrent;
@@ -162,23 +160,8 @@ function QueueTableRowCells({
       </td>
       <td className="queue-sung-cell">{row.sungCount}</td>
       <td className="queue-wait-cell">{getWaitLabel(row.request.requestedAt)}</td>
-      <td>
+      <td className="queue-table__actions-cell">
         <div className="queue-row-actions">
-          {isCurrent ? (
-            <span className="queue-row-actions__label">На сцене</span>
-          ) : isLeadQueuedRow ? (
-            <button
-              type="button"
-              className="queue-call-button"
-              onClick={() => onCall(row.request)}
-              disabled={!canManage}
-            >
-              На сцену
-            </button>
-          ) : (
-            <span className="queue-row-actions__placeholder">Через меню</span>
-          )}
-
           <RowActionsMenu
             request={row.request}
             canManage={canManage}
@@ -203,7 +186,6 @@ function StaticQueueTableRow({ row, ...actions }: QueueRowActions & { row: Queue
       <QueueTableRowCells
         row={row}
         dragHandle={<span className="queue-table__drag-handle-placeholder" aria-hidden="true" />}
-        isLeadQueuedRow={row.queueIndex === 0}
         {...actions}
       />
     </tr>
@@ -227,7 +209,6 @@ function SortableQueueTableRow({ row, ...actions }: QueueRowActions & { row: Que
     >
       <QueueTableRowCells
         row={row}
-        isLeadQueuedRow={row.queueIndex === 0}
         dragHandle={
           <button
             ref={setActivatorNodeRef}
@@ -352,7 +333,7 @@ export function QueueTable({
                 <th className="queue-table__col-guest">Гость</th>
                 <th className="queue-table__col-sung">Спел</th>
                 <th className="queue-table__col-wait">Ожидание</th>
-                <th className="queue-table__col-actions">Действия</th>
+                <th className="queue-table__col-actions" aria-label="Дополнительные действия" />
               </tr>
             </thead>
             <tbody>

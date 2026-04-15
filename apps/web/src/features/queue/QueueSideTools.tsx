@@ -1,19 +1,11 @@
 export function QueueSideTools({
   searchValue,
   onSearchChange,
-  onClearSearch,
-  showRebalance,
-  onRebalance,
-  rebalancePending,
-  canManage
+  onClearSearch
 }: {
   searchValue: string;
   onSearchChange: (value: string) => void;
   onClearSearch: () => void;
-  showRebalance: boolean;
-  onRebalance: () => void;
-  rebalancePending: boolean;
-  canManage: boolean;
 }) {
   return (
     <section className="sidebar-card sidebar-card--compact">
@@ -35,17 +27,6 @@ export function QueueSideTools({
         {searchValue.trim() ? (
           <button className="ghost-button ghost-button--compact" onClick={onClearSearch} type="button">
             Сбросить поиск
-          </button>
-        ) : null}
-
-        {showRebalance ? (
-          <button
-            className="ghost-button ghost-button--compact"
-            onClick={onRebalance}
-            disabled={!canManage || rebalancePending}
-            type="button"
-          >
-            {rebalancePending ? "Возвращаем…" : "Вернуть порядок"}
           </button>
         ) : null}
       </div>

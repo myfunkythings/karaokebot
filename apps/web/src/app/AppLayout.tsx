@@ -4,21 +4,7 @@ import type { LoginResponseDto } from "@karaoke/contracts";
 
 type User = LoginResponseDto["user"];
 
-function getRoleLabel(role: User["role"]) {
-  switch (role) {
-    case "owner":
-      return "владелец";
-    case "host":
-      return "ведущий";
-    case "viewer":
-      return "наблюдатель";
-    default:
-      return role;
-  }
-}
-
 export function AppLayout({
-  user,
   onLogout,
   children
 }: PropsWithChildren<{
@@ -29,11 +15,8 @@ export function AppLayout({
     <main className="page-shell">
       <header className="app-header">
         <div className="app-header__copy">
-          <div className="app-header__eyebrow">
-            {user.displayName} · {getRoleLabel(user.role)}
-          </div>
+          <div className="app-header__eyebrow">Пойте любые песни, кроме плохих</div>
           <h1 className="app-header__title">MISHKA KARAOKE</h1>
-          <p className="app-header__subtitle">Оперативная панель ведущего</p>
         </div>
 
         <div className="app-header__actions">

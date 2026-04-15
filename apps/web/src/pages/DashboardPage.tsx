@@ -5,7 +5,6 @@ import { AppLayout } from "../app/AppLayout";
 import { HostPanelPage } from "../features/queue/HostPanelPage";
 import { ManualRequestForm } from "../features/queue/ManualRequestForm";
 import { QueueSideTools } from "../features/queue/QueueSideTools";
-import { GuestSearchPanel } from "../features/guests/GuestSearchPanel";
 import { MiniSessionStatus } from "../features/session-control/MiniSessionStatus";
 import { CloseShiftSection } from "../features/session-control/CloseShiftSection";
 import { mockQueueSnapshot, mockStats, mockUser } from "../shared/mock/hostPanelMock";
@@ -46,16 +45,6 @@ export function DashboardPage() {
       ]);
     }
   });
-  const rebalanceMutation = useMutation({
-    mutationFn: api.rebalanceQueue,
-    onSuccess: async () => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["queue", "snapshot"] }),
-        queryClient.invalidateQueries({ queryKey: ["stats", "active"] })
-      ]);
-    }
-  });
-
   const isLoading = meQuery.isLoading || snapshotQuery.isLoading;
   const user = meQuery.data?.user;
   const snapshot = snapshotQuery.data;
@@ -75,8 +64,6 @@ export function DashboardPage() {
   }
 
   const canManage = resolvedUser.role === "owner" || resolvedUser.role === "host";
-  const manualModeActive = resolvedSnapshot.queued.some((item) => item.orderMode === "manual_pin");
-
   return (
     <AppLayout user={resolvedUser} onLogout={() => (devOfflineMode ? undefined : logoutMutation.mutate())}>
       <div className="dashboard-grid dashboard-grid--host">
@@ -92,13 +79,8 @@ export function DashboardPage() {
             searchValue={queueSearchValue}
             onSearchChange={setQueueSearchValue}
             onClearSearch={() => setQueueSearchValue("")}
-            showRebalance={manualModeActive}
-            onRebalance={() => rebalanceMutation.mutate()}
-            rebalancePending={rebalanceMutation.isPending}
-            canManage={canManage}
           />
           <ManualRequestForm canManage={canManage} />
-          <GuestSearchPanel />
           <MiniSessionStatus
             activeSession={resolvedSnapshot.session}
             snapshot={resolvedSnapshot}

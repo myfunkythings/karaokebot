@@ -23,7 +23,6 @@ export function CloseShiftSection({
       </div>
 
       <div className="close-shift-section">
-        <p className="sidebar-note">Редкое действие. Держим отдельно от ежедневных операций, чтобы не ошибиться в спешке.</p>
         <button
           className="danger-button danger-button--ghost danger-button--block"
           type="button"

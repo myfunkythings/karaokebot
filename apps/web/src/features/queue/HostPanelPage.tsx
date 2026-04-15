@@ -56,7 +56,6 @@ export function HostPanelPage({
     onSuccess: refreshEverything
   });
 
-  const manualModeActive = snapshot.queued.some((item) => item.orderMode === "manual_pin");
   const queueSearch = searchValue.trim().toLowerCase();
   const filteredRequests = useMemo(() => {
     if (!queueSearch) {
@@ -76,7 +75,6 @@ export function HostPanelPage({
     }
     return accumulator;
   }, {});
-  const nowSingingLabel = snapshot.current?.guest.displayName ?? "Сцена свободна";
   const nextActionDisabled =
     !canManage || !snapshot.session || (!snapshot.current && !snapshot.queued.length) || nextMutation.isPending;
 
@@ -164,16 +162,8 @@ export function HostPanelPage({
           </span>
           <div className="operational-toolbar__facts">
             <div className="operational-toolbar__fact">
-              <span>Сейчас</span>
-              <strong title={nowSingingLabel}>{nowSingingLabel}</strong>
-            </div>
-            <div className="operational-toolbar__fact">
               <span>В очереди</span>
               <strong>{snapshot.queued.length}</strong>
-            </div>
-            <div className="operational-toolbar__fact">
-              <span>Автоочередь</span>
-              <strong>{manualModeActive ? "ручные правки" : "авто"}</strong>
             </div>
           </div>
         </div>
