@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": ["vite/client"],
+    "composite": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@karaoke/contracts": ["src/external-modules.d.ts"],
+      "@karaoke/ui": ["src/external-modules.d.ts"]
+    }
+  },
+  "include": ["src"]
+}

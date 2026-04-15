@@ -1,0 +1,386 @@
+import { useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import type { SongRequestDto } from "@karaoke/contracts";
+import {
+  InlineEditableRequestText,
+  buildKaraokeCopyText,
+  writeTextToClipboard
+} from "./InlineEditableRequestText";
+import { RowActionsMenu } from "./RowActionsMenu";
+
+type QueueRowStatus = "current" | "queued";
+
+type QueueRowData = {
+  request: SongRequestDto;
+  rowNumber: string;
+  status: QueueRowStatus;
+  queueIndex: number | null;
+  sungCount: number;
+};
+
+type QueueRowActions = {
+  canManage: boolean;
+  editingRequestId: string | null;
+  setEditingRequestId: Dispatch<SetStateAction<string | null>>;
+  onCall: (request: SongRequestDto) => void;
+  onDefer: (requestId: string) => void;
+  onMove: (request: SongRequestDto) => void;
+  onNoShow: (request: SongRequestDto) => void;
+  onCopied: (message: string) => void;
+  onSaveRequestText: (requestId: string, rawText: string) => Promise<void>;
+};
+
+function DragHandleIcon() {
+  return (
+    <svg viewBox="0 0 16 16" aria-hidden="true">
+      <circle cx="5" cy="4" r="1" fill="currentColor" />
+      <circle cx="11" cy="4" r="1" fill="currentColor" />
+      <circle cx="5" cy="8" r="1" fill="currentColor" />
+      <circle cx="11" cy="8" r="1" fill="currentColor" />
+      <circle cx="5" cy="12" r="1" fill="currentColor" />
+      <circle cx="11" cy="12" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function getWaitLabel(timestamp: string) {
+  const totalMinutes = Math.max(0, Math.floor((Date.now() - new Date(timestamp).getTime()) / 60_000));
+  const hours = Math.floor(totalMinutes / 60);
+  const restMinutes = totalMinutes % 60;
+  return `${hours}:${String(restMinutes).padStart(2, "0")}`;
+}
+
+function getCreatedAtLabel(timestamp: string) {
+  return new Intl.DateTimeFormat("ru-RU", {
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(timestamp));
+}
+
+function getVisualStatus(
+  request: SongRequestDto,
+  _queueIndex: number | null,
+  currentRequestId: string | null
+): QueueRowStatus {
+  if (request.id === currentRequestId) {
+    return "current";
+  }
+  return "queued";
+}
+
+async function copyRequest(rawText: string, onCopied: (message: string) => void) {
+  const copiedValue = buildKaraokeCopyText(rawText);
+
+  try {
+    await writeTextToClipboard(copiedValue);
+    onCopied(`Скопировано: ${copiedValue}`);
+  } catch (error) {
+    console.error(error);
+    onCopied("Не удалось скопировать заявку");
+  }
+}
+
+function getRowClassName(row: QueueRowData, isDragging = false) {
+  const classNames = ["queue-table__row"];
+
+  if (row.status === "current") {
+    classNames.push("queue-table__row--current");
+  }
+
+  if (isDragging) {
+    classNames.push("queue-table__row--dragging");
+  }
+
+  return classNames.join(" ");
+}
+
+function QueueTableRowCells({
+  row,
+  dragHandle,
+  isLeadQueuedRow,
+  canManage,
+  editingRequestId,
+  setEditingRequestId,
+  onCall,
+  onDefer,
+  onMove,
+  onNoShow,
+  onCopied,
+  onSaveRequestText
+}: QueueRowActions & {
+  row: QueueRowData;
+  dragHandle: ReactNode;
+  isLeadQueuedRow: boolean;
+}) {
+  const isCurrent = row.status === "current";
+  const canReorder = !isCurrent;
+
+  return (
+    <>
+      <td className="queue-table__position">
+        <div className="queue-table__position-inner">
+          {dragHandle}
+          <span>{row.rowNumber}</span>
+        </div>
+      </td>
+      <td className="queue-table__request-cell">
+        <InlineEditableRequestText
+          value={row.request.rawText}
+          isEditing={editingRequestId === row.request.id}
+          onStartEditing={() => setEditingRequestId(row.request.id)}
+          onCancelEditing={() =>
+            setEditingRequestId((currentId) => (currentId === row.request.id ? null : currentId))
+          }
+          onSave={async (nextValue) => {
+            await onSaveRequestText(row.request.id, nextValue);
+            setEditingRequestId(null);
+            onCopied("Заявка обновлена");
+          }}
+        />
+        <span className="queue-table__request-meta">Поступила в {getCreatedAtLabel(row.request.requestedAt)}</span>
+      </td>
+      <td>
+        <div className="queue-guest-cell">
+          <strong>{row.request.guest.displayName}</strong>
+          <span>{row.request.guest.telegramUsername ? `@${row.request.guest.telegramUsername}` : "Добавлен вручную"}</span>
+        </div>
+      </td>
+      <td className="queue-sung-cell">{row.sungCount}</td>
+      <td className="queue-wait-cell">{getWaitLabel(row.request.requestedAt)}</td>
+      <td>
+        <div className="queue-row-actions">
+          {isCurrent ? (
+            <span className="queue-row-actions__label">На сцене</span>
+          ) : isLeadQueuedRow ? (
+            <button
+              type="button"
+              className="queue-call-button"
+              onClick={() => onCall(row.request)}
+              disabled={!canManage}
+            >
+              На сцену
+            </button>
+          ) : (
+            <span className="queue-row-actions__placeholder">Через меню</span>
+          )}
+
+          <RowActionsMenu
+            request={row.request}
+            canManage={canManage}
+            canReorder={canReorder}
+            canCall={!isCurrent}
+            onEdit={() => setEditingRequestId(row.request.id)}
+            onCopy={() => void copyRequest(row.request.rawText, onCopied)}
+            onCall={onCall}
+            onDefer={onDefer}
+            onMove={onMove}
+            onNoShow={onNoShow}
+          />
+        </div>
+      </td>
+    </>
+  );
+}
+
+function StaticQueueTableRow({ row, ...actions }: QueueRowActions & { row: QueueRowData }) {
+  return (
+    <tr className={getRowClassName(row)}>
+      <QueueTableRowCells
+        row={row}
+        dragHandle={<span className="queue-table__drag-handle-placeholder" aria-hidden="true" />}
+        isLeadQueuedRow={row.queueIndex === 0}
+        {...actions}
+      />
+    </tr>
+  );
+}
+
+function SortableQueueTableRow({ row, ...actions }: QueueRowActions & { row: QueueRowData }) {
+  const { attributes, listeners, setActivatorNodeRef, setNodeRef, transform, transition, isDragging } =
+    useSortable({
+      id: row.request.id
+    });
+
+  return (
+    <tr
+      ref={setNodeRef}
+      className={getRowClassName(row, isDragging)}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition
+      }}
+    >
+      <QueueTableRowCells
+        row={row}
+        isLeadQueuedRow={row.queueIndex === 0}
+        dragHandle={
+          <button
+            ref={setActivatorNodeRef}
+            type="button"
+            className="queue-table__drag-handle"
+            aria-label={`Перетащить заявку ${row.request.rawText}`}
+            title="Перетащить в очереди"
+            {...attributes}
+            {...listeners}
+          >
+            <DragHandleIcon />
+          </button>
+        }
+        {...actions}
+      />
+    </tr>
+  );
+}
+
+export function QueueTable({
+  currentRequest,
+  requests,
+  sungCountByGuestId,
+  canManage,
+  onCall,
+  onDefer,
+  onReorder,
+  onMove,
+  onNoShow,
+  onCopied,
+  onSaveRequestText,
+  movePending,
+  dragDisabled
+}: {
+  currentRequest: SongRequestDto | null;
+  requests: SongRequestDto[];
+  sungCountByGuestId: Record<string, number>;
+  canManage: boolean;
+  onCall: (request: SongRequestDto) => void;
+  onDefer: (requestId: string) => void;
+  onReorder: (requestId: string, position: number) => void;
+  onMove: (request: SongRequestDto) => void;
+  onNoShow: (request: SongRequestDto) => void;
+  onCopied: (message: string) => void;
+  onSaveRequestText: (requestId: string, rawText: string) => Promise<void>;
+  movePending: boolean;
+  dragDisabled?: boolean;
+}) {
+  const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
+  const dragEnabled = canManage && requests.length > 1 && !movePending && !dragDisabled;
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8
+      }
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates
+    })
+  );
+
+  const rows = useMemo(() => {
+    const visibleRows: QueueRowData[] = [];
+
+    if (currentRequest) {
+      visibleRows.push({
+        request: currentRequest,
+        rowNumber: "•",
+        status: "current",
+        queueIndex: null,
+        sungCount: sungCountByGuestId[currentRequest.guest.id] ?? 0
+      });
+    }
+
+    requests.forEach((request, index) => {
+      visibleRows.push({
+        request,
+        rowNumber: String(index + 1),
+        status: getVisualStatus(request, index, currentRequest?.id ?? null),
+        queueIndex: index,
+        sungCount: sungCountByGuestId[request.guest.id] ?? 0
+      });
+    });
+
+    return visibleRows;
+  }, [currentRequest, requests, sungCountByGuestId]);
+  const rowActions: QueueRowActions = {
+    canManage,
+    editingRequestId,
+    setEditingRequestId,
+    onCall,
+    onDefer,
+    onMove,
+    onNoShow,
+    onCopied,
+    onSaveRequestText
+  };
+  const currentRow = currentRequest ? rows.find((row) => row.status === "current") ?? null : null;
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!dragEnabled || !over || active.id === over.id) {
+      return;
+    }
+
+    const targetIndex = requests.findIndex((request) => request.id === over.id);
+    if (targetIndex === -1) {
+      return;
+    }
+
+    onReorder(String(active.id), targetIndex + 1);
+  }
+
+  return (
+    <section className="queue-card">
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <div className="queue-table-wrap">
+          <table className="queue-table">
+            <thead>
+              <tr>
+                <th className="queue-table__col-index">#</th>
+                <th className="queue-table__col-request">Заявка</th>
+                <th className="queue-table__col-guest">Гость</th>
+                <th className="queue-table__col-sung">Спел</th>
+                <th className="queue-table__col-wait">Ожидание</th>
+                <th className="queue-table__col-actions">Действия</th>
+              </tr>
+            </thead>
+            <tbody>
+              {!rows.length ? (
+                <tr>
+                  <td className="queue-table__empty" colSpan={6}>
+                    <strong>Очередь пока пуста</strong>
+                    <span>Новые заявки появятся здесь</span>
+                  </td>
+                </tr>
+              ) : dragEnabled ? (
+                <>
+                  {currentRow ? <StaticQueueTableRow row={currentRow} {...rowActions} /> : null}
+                  <SortableContext items={requests.map((request) => request.id)} strategy={verticalListSortingStrategy}>
+                    {rows
+                      .filter((row) => row.status !== "current")
+                      .map((row) => (
+                        <SortableQueueTableRow key={row.request.id} row={row} {...rowActions} />
+                      ))}
+                  </SortableContext>
+                </>
+              ) : (
+                rows.map((row) => <StaticQueueTableRow key={row.request.id} row={row} {...rowActions} />)
+              )}
+            </tbody>
+          </table>
+        </div>
+      </DndContext>
+    </section>
+  );
+}

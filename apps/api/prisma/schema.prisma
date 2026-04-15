@@ -1,0 +1,207 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum StaffRole {
+  owner
+  host
+  viewer
+}
+
+enum SessionStatus {
+  draft
+  active
+  closed
+}
+
+enum SongRequestSource {
+  telegram
+  manual
+}
+
+enum SongRequestStatus {
+  queued
+  current
+  sung
+  cancelled
+}
+
+enum SongRequestOutcome {
+  sung
+  cancelled_by_host
+  left_venue
+  undone
+}
+
+enum OrderMode {
+  auto
+  manual_pin
+}
+
+enum ActorType {
+  staff
+  system
+  telegram
+}
+
+enum TelegramUpdateProcessingStatus {
+  accepted
+  ignored
+  duplicate
+  error
+}
+
+model StaffUser {
+  id            String      @id @default(cuid())
+  login         String      @unique
+  displayName   String
+  passwordHash  String
+  role          StaffRole
+  isActive      Boolean     @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  createdSessions Session[] @relation("SessionCreatedBy")
+  settingsUpdates Setting[]
+  auditActions  ActionLog[] @relation("ActionStaffUser")
+}
+
+model GuestProfile {
+  id                    String             @id @default(cuid())
+  telegramUserId        String?            @unique
+  telegramUsername      String?
+  firstName             String?
+  lastName              String?
+  displayName           String
+  normalizedDisplayName String
+  lastSeenAt            DateTime?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  songRequests          SongRequest[]
+  telegramUpdates       TelegramUpdate[]
+  auditActions          ActionLog[]        @relation("ActionGuestUser")
+  sessionStats          SessionGuestStat[]
+}
+
+model Session {
+  id                 String             @id @default(cuid())
+  title              String
+  status             SessionStatus      @default(draft)
+  openedAt           DateTime?
+  closedAt           DateTime?
+  timezone           String
+  configSnapshotJson Json
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  createdByStaffId   String
+  createdByStaff     StaffUser          @relation("SessionCreatedBy", fields: [createdByStaffId], references: [id])
+  songRequests       SongRequest[]
+  actionLogs         ActionLog[]
+  guestStats         SessionGuestStat[]
+
+  @@index([status])
+}
+
+model SongRequest {
+  id               String              @id @default(cuid())
+  sessionId        String
+  guestProfileId   String
+  source           SongRequestSource
+  telegramUpdateId String?
+  telegramMessageId String?
+  rawText          String
+  artist           String?
+  title            String?
+  status           SongRequestStatus   @default(queued)
+  outcome          SongRequestOutcome?
+  requestedAt      DateTime            @default(now())
+  calledAt         DateTime?
+  completedAt      DateTime?
+  cancelledAt      DateTime?
+  queueRank        Int?
+  orderMode        OrderMode           @default(auto)
+  manualRank       Int?
+  deferCount       Int                 @default(0)
+  note             String?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  session          Session             @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  guestProfile     GuestProfile        @relation(fields: [guestProfileId], references: [id], onDelete: Restrict)
+  telegramUpdates  TelegramUpdate[]
+
+  @@index([sessionId, status])
+  @@index([sessionId, queueRank])
+  @@index([guestProfileId, requestedAt])
+}
+
+model TelegramUpdate {
+  id               String                         @id @default(cuid())
+  telegramUpdateId String                         @unique
+  telegramChatId   String
+  telegramMessageId String?
+  guestProfileId   String?
+  rawPayloadJson   Json
+  processingStatus TelegramUpdateProcessingStatus
+  receivedAt       DateTime                       @default(now())
+  processedAt      DateTime?
+  linkedSongRequestId String?
+  errorText        String?
+  guestProfile     GuestProfile?                  @relation(fields: [guestProfileId], references: [id], onDelete: SetNull)
+  linkedSongRequest SongRequest?                  @relation(fields: [linkedSongRequestId], references: [id], onDelete: SetNull)
+
+  @@index([guestProfileId])
+  @@index([linkedSongRequestId])
+}
+
+model Setting {
+  key               String    @id
+  valueJson         Json
+  scope             String    @default("global")
+  updatedByStaffId  String?
+  updatedAt         DateTime  @updatedAt
+  updatedByStaff    StaffUser? @relation(fields: [updatedByStaffId], references: [id], onDelete: SetNull)
+}
+
+model ActionLog {
+  id                String    @id @default(cuid())
+  sessionId         String
+  actorType         ActorType
+  actorStaffId      String?
+  actorGuestId      String?
+  actionType        String
+  payloadJson       Json
+  inversePayloadJson Json?
+  isUndoable        Boolean   @default(false)
+  undoneByActionId  String?
+  createdAt         DateTime  @default(now())
+  session           Session   @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  actorStaff        StaffUser? @relation("ActionStaffUser", fields: [actorStaffId], references: [id], onDelete: SetNull)
+  actorGuest        GuestProfile? @relation("ActionGuestUser", fields: [actorGuestId], references: [id], onDelete: SetNull)
+  undoneByAction    ActionLog? @relation("UndoChain", fields: [undoneByActionId], references: [id], onDelete: SetNull)
+  undoneActions     ActionLog[] @relation("UndoChain")
+
+  @@index([sessionId, createdAt])
+  @@index([isUndoable, createdAt])
+}
+
+model SessionGuestStat {
+  sessionId      String
+  guestProfileId String
+  requestsCount  Int      @default(0)
+  sungCount      Int      @default(0)
+  deferCount     Int      @default(0)
+  cancelledCount Int      @default(0)
+  lastRequestAt  DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  session        Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  guestProfile   GuestProfile @relation(fields: [guestProfileId], references: [id], onDelete: Cascade)
+
+  @@id([sessionId, guestProfileId])
+  @@index([sessionId, sungCount])
+}

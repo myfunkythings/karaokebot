@@ -1,0 +1,25 @@
+{
+  "name": "karaoke-platform",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @karaoke/contracts && npm run build --workspace @karaoke/ui && npm run build --workspace @karaoke/api && npm run build --workspace @karaoke/web",
+    "deploy": "bash ./scripts/deploy.sh",
+    "dev": "npm run build --workspace @karaoke/contracts && npm run start:dev --workspace @karaoke/api",
+    "dev:api": "npm run build --workspace @karaoke/contracts && npm run start:dev --workspace @karaoke/api",
+    "dev:web": "npm run dev --workspace @karaoke/web",
+    "lint": "npm run build --workspace @karaoke/contracts && npm run lint --workspace @karaoke/ui && npm run lint --workspace @karaoke/api && npm run lint --workspace @karaoke/web",
+    "format": "npm run format --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "prisma:generate": "npm run prisma:generate --workspace @karaoke/api",
+    "prisma:migrate": "npm run prisma:migrate --workspace @karaoke/api",
+    "prisma:seed": "npm run prisma:seed --workspace @karaoke/api"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

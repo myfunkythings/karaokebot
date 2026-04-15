@@ -1,0 +1,11 @@
+{$DOMAIN} {
+  encode gzip zstd
+
+  handle_path /karaoke/api/* {
+    reverse_proxy api:3000
+  }
+
+  handle_path /karaoke* {
+    reverse_proxy web:4173
+  }
+}
