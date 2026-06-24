@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { CurrentUser } from "../../common/decorators/current-user.decorator.js";
 import { Roles } from "../../common/decorators/roles.decorator.js";
 import type { AuthenticatedUser } from "../../common/types/authenticated-user.js";
-import { DeferRequestDto, MoveRequestDto } from "./queue.dto.js";
+import { ChannelScopedQueueActionDto, DeferRequestDto, MoveRequestDto } from "./queue.dto.js";
 import { QueueService } from "./queue.service.js";
 
 @Controller("queue")
@@ -11,20 +11,26 @@ export class QueueController {
 
   @Roles("viewer", "host", "owner")
   @Get("snapshot")
-  async getSnapshot() {
-    return this.queueService.getSnapshot();
+  async getSnapshot(@Query("channel") channelSlug?: string) {
+    return this.queueService.getSnapshot(channelSlug);
   }
 
   @Roles("host", "owner")
   @Post("next")
-  async moveToNextPerformer(@CurrentUser() user: AuthenticatedUser) {
-    return this.queueService.moveToNextPerformer(user.id);
+  async moveToNextPerformer(
+    @Body() body: ChannelScopedQueueActionDto,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.queueService.moveToNextPerformer(user.id, body.channelSlug);
   }
 
   @Roles("host", "owner")
   @Post("rebalance")
-  async rebalanceQueue(@CurrentUser() user: AuthenticatedUser) {
-    return this.queueService.rebalanceQueue(user.id);
+  async rebalanceQueue(
+    @Body() body: ChannelScopedQueueActionDto,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.queueService.rebalanceQueue(user.id, body.channelSlug);
   }
 
   @Roles("host", "owner")
@@ -60,9 +66,10 @@ export class QueueController {
   @Post("guest/:guestId/cancel-future")
   async cancelGuestFutureRequests(
     @Param("guestId") guestId: string,
+    @Body() body: ChannelScopedQueueActionDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    return this.queueService.cancelGuestFutureRequests(guestId, user.id);
+    return this.queueService.cancelGuestFutureRequests(guestId, user.id, body.channelSlug);
   }
 
   @Roles("host", "owner")

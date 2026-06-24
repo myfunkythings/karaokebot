@@ -12,22 +12,41 @@ def require_env(name: str) -> str:
     return value
 
 
-def build_webhook_url(domain: str) -> str:
+def to_env_slug(channel: str) -> str:
+    return "".join(char if char.isalnum() else "_" for char in channel.upper())
+
+
+def get_channel_env(channel: str, suffix: str, fallback_name=None) -> str:
+    if channel == "main" and fallback_name:
+        return require_env(fallback_name)
+
+    return require_env(f"TELEGRAM_{to_env_slug(channel)}_{suffix}")
+
+
+def build_webhook_url(domain: str, channel: str) -> str:
     normalized = domain.rstrip("/")
     if not normalized.startswith("http://") and not normalized.startswith("https://"):
         normalized = f"https://{normalized}"
-    return f"{normalized}/karaoke/api/telegram/webhook"
+    if channel == "main":
+        return f"{normalized}/karaoke/api/telegram/webhook"
+    return f"{normalized}/karaoke/api/telegram/{channel}/webhook"
 
 
 def main() -> int:
-    token = require_env("TELEGRAM_BOT_TOKEN")
-    secret = require_env("TELEGRAM_WEBHOOK_SECRET")
-    webhook_url = os.getenv("TELEGRAM_WEBHOOK_URL", "").strip()
+    channel = os.getenv("TELEGRAM_CHANNEL", "main").strip() or "main"
+    token = get_channel_env(channel, "BOT_TOKEN", "TELEGRAM_BOT_TOKEN")
+    secret = get_channel_env(channel, "WEBHOOK_SECRET", "TELEGRAM_WEBHOOK_SECRET")
+    webhook_url_env = (
+        "TELEGRAM_WEBHOOK_URL"
+        if channel == "main"
+        else f"TELEGRAM_{to_env_slug(channel)}_WEBHOOK_URL"
+    )
+    webhook_url = os.getenv(webhook_url_env, "").strip()
     if webhook_url:
         webhook_url = webhook_url.rstrip("/")
     else:
         domain = require_env("DOMAIN")
-        webhook_url = build_webhook_url(domain)
+        webhook_url = build_webhook_url(domain, channel)
 
     payload = {
         "url": webhook_url,

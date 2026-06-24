@@ -39,6 +39,11 @@ Monorepo with a NestJS API, React/Vite admin panel, PostgreSQL/Prisma data layer
    `OWNER_DISPLAY_NAME` in `.env`. For the current MVP, this is the single shared login for the
    whole admin panel.
 
+   Song requests can be split by request channels without adding another admin login. The default
+   seed creates `main` (`Основной бот`) and `secondary` (`Второй бот`). The second Telegram bot is
+   optional until created; configure it later with `TELEGRAM_SECONDARY_BOT_TOKEN` and
+   `TELEGRAM_SECONDARY_WEBHOOK_SECRET`.
+
 5. Start the API and web app in separate terminals:
 
    ```bash
@@ -51,6 +56,9 @@ Monorepo with a NestJS API, React/Vite admin panel, PostgreSQL/Prisma data layer
    ```bash
    python3 scripts/register-telegram-webhook.py
    ```
+
+   To register the optional second bot, run the same script with `TELEGRAM_CHANNEL=secondary` after
+   setting `TELEGRAM_SECONDARY_BOT_TOKEN` and `TELEGRAM_SECONDARY_WEBHOOK_SECRET`.
 
 See [docs/architecture/overview.md](/Users/nikitabuch/Yandex.Disk.localized/APPS/KARAOKE-BOT/docs/architecture/overview.md) and [docs/runbooks/deploy.md](/Users/nikitabuch/Yandex.Disk.localized/APPS/KARAOKE-BOT/docs/runbooks/deploy.md) for more detail.
 

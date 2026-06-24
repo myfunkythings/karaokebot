@@ -11,6 +11,7 @@ import { SettingsModule } from "./modules/settings/settings.module.js";
 import { StatsModule } from "./modules/stats/stats.module.js";
 import { AuditModule } from "./modules/audit/audit.module.js";
 import { SongRequestsModule } from "./modules/song-requests/song-requests.module.js";
+import { RequestChannelsModule } from "./modules/request-channels/request-channels.module.js";
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { SongRequestsModule } from "./modules/song-requests/song-requests.module
     SettingsModule,
     SessionsModule,
     GuestsModule,
+    RequestChannelsModule,
     AuditModule,
     QueueModule,
     SongRequestsModule,

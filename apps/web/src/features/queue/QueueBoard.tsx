@@ -26,7 +26,7 @@ export function QueueBoard({
   };
 
   const nextMutation = useMutation({
-    mutationFn: api.nextPerformer,
+    mutationFn: () => api.nextPerformer(),
     onSuccess: refreshEverything
   });
   const callRequestMutation = useMutation({
@@ -34,7 +34,7 @@ export function QueueBoard({
     onSuccess: refreshEverything
   });
   const rebalanceMutation = useMutation({
-    mutationFn: api.rebalanceQueue,
+    mutationFn: () => api.rebalanceQueue(),
     onSuccess: refreshEverything
   });
   const deferMutation = useMutation({
@@ -42,7 +42,7 @@ export function QueueBoard({
     onSuccess: refreshEverything
   });
   const cancelGuestMutation = useMutation({
-    mutationFn: api.cancelGuestFuture,
+    mutationFn: (guestId: string) => api.cancelGuestFuture(guestId),
     onSuccess: refreshEverything
   });
   const moveMutation = useMutation({

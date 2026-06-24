@@ -20,6 +20,7 @@ export class SongRequestsController {
       rawText: body.rawText,
       artist: body.artist,
       title: body.title,
+      channelSlug: body.channelSlug,
       actorStaffId: user.id
     });
   }

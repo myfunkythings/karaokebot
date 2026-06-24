@@ -1,14 +1,21 @@
-import type { SongRequest, GuestProfile } from "@prisma/client";
+import type { SongRequest, GuestProfile, RequestChannel } from "@prisma/client";
 import type { SongRequestDto } from "@karaoke/contracts";
 
 type SongRequestWithGuest = SongRequest & {
   guestProfile: GuestProfile;
+  channel: RequestChannel;
 };
 
 export function toSongRequestDto(request: SongRequestWithGuest): SongRequestDto {
   return {
     id: request.id,
     sessionId: request.sessionId,
+    channel: {
+      id: request.channel.id,
+      slug: request.channel.slug,
+      name: request.channel.name,
+      color: request.channel.color
+    },
     guest: {
       id: request.guestProfile.id,
       displayName: request.guestProfile.displayName,

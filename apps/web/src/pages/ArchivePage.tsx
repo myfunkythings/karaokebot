@@ -14,7 +14,7 @@ export function ArchivePage() {
   });
   const snapshotQuery = useQuery({
     queryKey: ["queue", "snapshot"],
-    queryFn: api.getQueueSnapshot,
+    queryFn: () => api.getQueueSnapshot(),
     refetchInterval: 5_000
   });
   const statsQuery = useQuery({

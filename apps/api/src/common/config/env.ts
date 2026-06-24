@@ -15,6 +15,9 @@ const envSchema = z
     TELEGRAM_BOT_TOKEN: z.string().min(1).default("replace-me"),
     TELEGRAM_WEBHOOK_SECRET: z.string().min(16).default("replace-me-telegram-secret"),
     TELEGRAM_WEBHOOK_URL: z.string().url().optional(),
+    TELEGRAM_SECONDARY_BOT_TOKEN: z.string().optional(),
+    TELEGRAM_SECONDARY_WEBHOOK_SECRET: z.string().min(16).optional(),
+    TELEGRAM_SECONDARY_WEBHOOK_URL: z.string().url().optional(),
     OWNER_LOGIN: z.string().min(1).default("owner"),
     OWNER_PASSWORD: z.string().min(4).default("change-this-owner-password"),
     OWNER_DISPLAY_NAME: z.string().min(1).default("Owner")
@@ -67,6 +70,26 @@ const envSchema = z
         path: ["TELEGRAM_WEBHOOK_URL"],
         message:
           "TELEGRAM_WEBHOOK_URL / DOMAIN must be replaced with a real production value"
+      });
+    }
+
+    if (env.TELEGRAM_SECONDARY_BOT_TOKEN && !env.TELEGRAM_SECONDARY_WEBHOOK_SECRET) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["TELEGRAM_SECONDARY_WEBHOOK_SECRET"],
+        message:
+          "TELEGRAM_SECONDARY_WEBHOOK_SECRET is required when TELEGRAM_SECONDARY_BOT_TOKEN is set"
+      });
+    }
+
+    if (
+      env.TELEGRAM_SECONDARY_BOT_TOKEN &&
+      isTelegramWebhookPlaceholder(env.TELEGRAM_SECONDARY_BOT_TOKEN)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["TELEGRAM_SECONDARY_BOT_TOKEN"],
+        message: "TELEGRAM_SECONDARY_BOT_TOKEN must be a real token when configured"
       });
     }
   });

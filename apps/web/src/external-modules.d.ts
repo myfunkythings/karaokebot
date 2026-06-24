@@ -40,9 +40,17 @@ declare module "@karaoke/contracts" {
     };
   };
 
+  export type RequestChannelDto = {
+    id: string;
+    slug: string;
+    name: string;
+    color: string | null;
+  };
+
   export type SongRequestDto = {
     id: string;
     sessionId: string;
+    channel: RequestChannelDto;
     guest: {
       id: string;
       displayName: string;
@@ -75,6 +83,8 @@ declare module "@karaoke/contracts" {
       closedAt: string | null;
       timezone: string;
     } | null;
+    channels: RequestChannelDto[];
+    activeChannelSlug: string;
     current: SongRequestDto | null;
     queued: SongRequestDto[];
     archive: SongRequestDto[];

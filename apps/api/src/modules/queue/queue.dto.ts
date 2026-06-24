@@ -1,5 +1,5 @@
 import { Type } from "class-transformer";
-import { IsInt, IsOptional, Min } from "class-validator";
+import { IsInt, IsOptional, IsString, Min } from "class-validator";
 
 export class MoveRequestDto {
   @Type(() => Number)
@@ -14,4 +14,10 @@ export class DeferRequestDto {
   @IsInt()
   @Min(1)
   positions?: number;
+}
+
+export class ChannelScopedQueueActionDto {
+  @IsOptional()
+  @IsString()
+  channelSlug?: string;
 }

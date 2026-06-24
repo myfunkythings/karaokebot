@@ -1970,6 +1970,46 @@ button:focus-visible {
   justify-content: flex-end;
 }
 
+.channel-switcher {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid #e7eaee;
+  border-radius: 16px;
+  background: var(--bg-surface);
+}
+
+.channel-switcher__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 6px 11px;
+  border: 1px solid #dfe5ea;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #465c68;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 700;
+}
+
+.channel-switcher__button--active {
+  border-color: #203b47;
+  background: #203b47;
+  color: #ffffff;
+}
+
+.channel-switcher__dot,
+.request-channel-badge__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
 .queue-card {
   display: grid;
   gap: 10px;
@@ -2225,6 +2265,22 @@ button:focus-visible {
   font-size: 12px;
   line-height: 16px;
   color: #8a99a4;
+}
+
+.request-channel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #f2f5f7;
+  color: #526674;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
 }
 
 .queue-table__empty {

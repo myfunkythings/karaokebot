@@ -9,11 +9,15 @@ import { QueueTable } from "./QueueTable";
 export function HostPanelPage({
   snapshot,
   canManage,
-  searchValue
+  searchValue,
+  selectedChannelSlug,
+  onChannelChange
 }: {
   snapshot: QueueSnapshotDto;
   canManage: boolean;
   searchValue: string;
+  selectedChannelSlug: string;
+  onChannelChange: (channelSlug: string) => void;
 }) {
   const queryClient = useQueryClient();
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -26,7 +30,7 @@ export function HostPanelPage({
   };
 
   const nextMutation = useMutation({
-    mutationFn: api.nextPerformer,
+    mutationFn: () => api.nextPerformer(selectedChannelSlug),
     onSuccess: refreshEverything
   });
   const callRequestMutation = useMutation({
@@ -38,7 +42,7 @@ export function HostPanelPage({
     onSuccess: refreshEverything
   });
   const cancelGuestMutation = useMutation({
-    mutationFn: api.cancelGuestFuture,
+    mutationFn: (guestId: string) => api.cancelGuestFuture(guestId, selectedChannelSlug),
     onSuccess: refreshEverything
   });
   const moveMutation = useMutation({
@@ -165,6 +169,12 @@ export function HostPanelPage({
               <span>В очереди</span>
               <strong>{snapshot.queued.length}</strong>
             </div>
+            <div className="operational-toolbar__fact">
+              <span>Канал</span>
+              <strong>
+                {snapshot.channels.find((channel) => channel.slug === selectedChannelSlug)?.name ?? "Основной"}
+              </strong>
+            </div>
           </div>
         </div>
 
@@ -188,6 +198,30 @@ export function HostPanelPage({
           </button>
         </div>
       </section>
+
+      {snapshot.channels.length > 1 ? (
+        <section className="channel-switcher" aria-label="Канал заявок">
+          {snapshot.channels.map((channel) => (
+            <button
+              key={channel.id}
+              type="button"
+              className={
+                channel.slug === selectedChannelSlug
+                  ? "channel-switcher__button channel-switcher__button--active"
+                  : "channel-switcher__button"
+              }
+              onClick={() => onChannelChange(channel.slug)}
+            >
+              <span
+                className="channel-switcher__dot"
+                style={{ background: channel.color ?? "#58707b" }}
+                aria-hidden="true"
+              />
+              {channel.name}
+            </button>
+          ))}
+        </section>
+      ) : null}
 
       <section className="queue-panel">
         <QueueTable

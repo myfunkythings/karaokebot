@@ -1,18 +1,16 @@
 import { FormEvent, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { QueueSnapshotDto, SessionStatsDto } from "@karaoke/contracts";
+import type { QueueSnapshotDto } from "@karaoke/contracts";
 import { formatDateTime } from "../../shared/lib/format";
 import { api } from "../../shared/api/client";
 
 export function MiniSessionStatus({
   activeSession,
   snapshot,
-  stats,
   canManage
 }: {
   activeSession: { id: string; title: string; openedAt: string | null; timezone: string } | null;
   snapshot: QueueSnapshotDto;
-  stats: SessionStatsDto | null;
   canManage: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -70,7 +68,7 @@ export function MiniSessionStatus({
             </div>
             <div className="mini-status__line">
               <span>Исполнено</span>
-              <strong>{stats?.totalSung ?? snapshot.stats.totalSung}</strong>
+              <strong>{snapshot.stats.totalSung}</strong>
             </div>
           </div>
         </>

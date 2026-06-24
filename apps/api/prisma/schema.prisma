@@ -88,6 +88,21 @@ model GuestProfile {
   sessionStats          SessionGuestStat[]
 }
 
+model RequestChannel {
+  id              String           @id @default(cuid())
+  slug            String           @unique
+  name            String
+  color           String?
+  isActive        Boolean          @default(true)
+  sortOrder       Int              @default(0)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  songRequests    SongRequest[]
+  telegramUpdates TelegramUpdate[]
+
+  @@index([isActive, sortOrder])
+}
+
 model Session {
   id                 String             @id @default(cuid())
   title              String
@@ -111,6 +126,7 @@ model SongRequest {
   id               String              @id @default(cuid())
   sessionId        String
   guestProfileId   String
+  channelId        String
   source           SongRequestSource
   telegramUpdateId String?
   telegramMessageId String?
@@ -132,16 +148,20 @@ model SongRequest {
   updatedAt        DateTime            @updatedAt
   session          Session             @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   guestProfile     GuestProfile        @relation(fields: [guestProfileId], references: [id], onDelete: Restrict)
+  channel          RequestChannel      @relation(fields: [channelId], references: [id], onDelete: Restrict)
   telegramUpdates  TelegramUpdate[]
 
   @@index([sessionId, status])
+  @@index([sessionId, channelId, status])
   @@index([sessionId, queueRank])
   @@index([guestProfileId, requestedAt])
+  @@index([channelId, requestedAt])
 }
 
 model TelegramUpdate {
   id               String                         @id @default(cuid())
-  telegramUpdateId String                         @unique
+  channelId        String
+  telegramUpdateId String
   telegramChatId   String
   telegramMessageId String?
   guestProfileId   String?
@@ -151,9 +171,12 @@ model TelegramUpdate {
   processedAt      DateTime?
   linkedSongRequestId String?
   errorText        String?
+  channel          RequestChannel                 @relation(fields: [channelId], references: [id], onDelete: Restrict)
   guestProfile     GuestProfile?                  @relation(fields: [guestProfileId], references: [id], onDelete: SetNull)
   linkedSongRequest SongRequest?                  @relation(fields: [linkedSongRequestId], references: [id], onDelete: SetNull)
 
+  @@unique([channelId, telegramUpdateId])
+  @@index([channelId, receivedAt])
   @@index([guestProfileId])
   @@index([linkedSongRequestId])
 }

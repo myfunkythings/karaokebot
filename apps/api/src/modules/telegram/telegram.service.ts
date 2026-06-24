@@ -8,6 +8,7 @@ import { ConfigService } from "@nestjs/config";
 import { PrismaService } from "../../common/db/prisma.service.js";
 import { SongRequestsService } from "../song-requests/song-requests.service.js";
 import { SettingsService } from "../settings/settings.service.js";
+import { RequestChannelsService } from "../request-channels/request-channels.service.js";
 import { resolveTelegramWebhookUrl } from "./telegram-webhook.js";
 
 type TelegramMessage = {
@@ -35,7 +36,8 @@ export class TelegramService implements OnApplicationBootstrap {
     private readonly configService: ConfigService,
     private readonly prisma: PrismaService,
     private readonly songRequestsService: SongRequestsService,
-    private readonly settingsService: SettingsService
+    private readonly settingsService: SettingsService,
+    private readonly requestChannelsService: RequestChannelsService
   ) {}
 
   async onApplicationBootstrap() {
@@ -44,9 +46,11 @@ export class TelegramService implements OnApplicationBootstrap {
 
   async handleWebhook(
     update: TelegramUpdate,
-    providedSecret?: string
+    providedSecret?: string,
+    channelSlug?: string | null
   ) {
-    this.assertSecret(providedSecret);
+    const channel = await this.requestChannelsService.getRequiredChannelBySlug(channelSlug);
+    this.assertSecret(channel.slug, providedSecret);
 
     const updateId = String(update.update_id ?? "");
     if (!updateId) {
@@ -54,7 +58,12 @@ export class TelegramService implements OnApplicationBootstrap {
     }
 
     const existing = await this.prisma.telegramUpdate.findUnique({
-      where: { telegramUpdateId: updateId }
+      where: {
+        channelId_telegramUpdateId: {
+          channelId: channel.id,
+          telegramUpdateId: updateId
+        }
+      }
     });
     if (existing) {
       return { ok: true, duplicate: true };
@@ -68,6 +77,7 @@ export class TelegramService implements OnApplicationBootstrap {
 
     const telegramUpdate = await this.prisma.telegramUpdate.create({
       data: {
+        channelId: channel.id,
         telegramUpdateId: updateId,
         telegramChatId: telegramChatId ?? "unknown",
         telegramMessageId: message?.message_id ? String(message.message_id) : null,
@@ -98,7 +108,7 @@ export class TelegramService implements OnApplicationBootstrap {
           replyText = settings.botReplyTemplates.startMessage;
         } else if (text === "/status") {
           replyText =
-            await this.songRequestsService.getTelegramGuestStatusSummary(telegramUserId);
+            await this.songRequestsService.getTelegramGuestStatusSummary(telegramUserId, channel.slug);
         } else {
           replyText = settings.botReplyTemplates.unknownCommand;
         }
@@ -111,7 +121,8 @@ export class TelegramService implements OnApplicationBootstrap {
           telegramUsername: sender?.username,
           firstName: sender?.first_name,
           lastName: sender?.last_name,
-          rawText: text
+          rawText: text,
+          channelSlug: channel.slug
         });
 
         replyText = result.message;
@@ -119,7 +130,7 @@ export class TelegramService implements OnApplicationBootstrap {
         linkedSongRequestId = result.status === "accepted" ? result.requestId : null;
       }
 
-      await this.sendMessage(telegramChatId, replyText);
+      await this.sendMessage(channel.slug, telegramChatId, replyText);
 
       await this.prisma.telegramUpdate.update({
         where: { id: telegramUpdate.id },
@@ -148,20 +159,24 @@ export class TelegramService implements OnApplicationBootstrap {
 
   async getGuestStatus(
     telegramUserId: string,
-    providedSecret?: string
+    providedSecret?: string,
+    channelSlug?: string | null
   ) {
-    this.assertSecret(providedSecret);
+    const channel = await this.requestChannelsService.getRequiredChannelBySlug(channelSlug);
+    this.assertSecret(channel.slug, providedSecret);
 
     return {
       ok: true,
       message: await this.songRequestsService.getTelegramGuestStatusSummary(
-        telegramUserId
+        telegramUserId,
+        channel.slug
       )
     };
   }
 
-  async getBotReplyTemplates(providedSecret?: string) {
-    this.assertSecret(providedSecret);
+  async getBotReplyTemplates(providedSecret?: string, channelSlug?: string | null) {
+    const channel = await this.requestChannelsService.getRequiredChannelBySlug(channelSlug);
+    this.assertSecret(channel.slug, providedSecret);
     const settings = await this.settingsService.getGlobalSettings();
 
     return {
@@ -171,10 +186,12 @@ export class TelegramService implements OnApplicationBootstrap {
     };
   }
 
-  private async sendMessage(chatId: string, text: string) {
-    const token = this.configService.get<string>("TELEGRAM_BOT_TOKEN");
+  private async sendMessage(channelSlug: string, chatId: string, text: string) {
+    const token = this.getBotToken(channelSlug);
     if (!token || token === "replace-me") {
-      this.logger.warn("TELEGRAM_BOT_TOKEN is not configured; skipping outbound Telegram reply");
+      this.logger.warn(
+        `Telegram bot token is not configured for channel "${channelSlug}"; skipping outbound reply`
+      );
       return;
     }
 
@@ -194,30 +211,40 @@ export class TelegramService implements OnApplicationBootstrap {
     }
   }
 
-  private assertSecret(providedSecret?: string) {
-    const expectedSecret = this.configService.getOrThrow<string>(
-      "TELEGRAM_WEBHOOK_SECRET"
-    );
-    if (providedSecret !== expectedSecret) {
+  private assertSecret(channelSlug: string, providedSecret?: string) {
+    const expectedSecret = this.getWebhookSecret(channelSlug);
+    if (!expectedSecret || providedSecret !== expectedSecret) {
       throw new ForbiddenException("Invalid Telegram webhook secret");
     }
   }
 
   private async ensureWebhook() {
-    const token = this.configService.get<string>("TELEGRAM_BOT_TOKEN");
+    const channels = await this.requestChannelsService.getActiveChannels();
+    for (const channel of channels) {
+      await this.ensureChannelWebhook(channel.slug);
+    }
+  }
+
+  private async ensureChannelWebhook(channelSlug: string) {
+    const token = this.getBotToken(channelSlug);
     if (!token || token === "replace-me") {
-      this.logger.warn("TELEGRAM_BOT_TOKEN is not configured; skipping webhook registration");
+      this.logger.warn(
+        `Telegram bot token is not configured for channel "${channelSlug}"; skipping webhook registration`
+      );
       return;
     }
 
-    const secret = this.configService.get<string>("TELEGRAM_WEBHOOK_SECRET");
+    const secret = this.getWebhookSecret(channelSlug);
     const webhookUrl = resolveTelegramWebhookUrl({
-      explicitUrl: this.configService.get<string>("TELEGRAM_WEBHOOK_URL"),
-      domain: this.configService.get<string>("DOMAIN")
+      explicitUrl: this.getExplicitWebhookUrl(channelSlug),
+      domain: this.configService.get<string>("DOMAIN"),
+      channelSlug
     });
 
     if (!secret || !webhookUrl) {
-      this.logger.warn("Telegram webhook URL or secret is missing; skipping webhook registration");
+      this.logger.warn(
+        `Telegram webhook URL or secret is missing for channel "${channelSlug}"; skipping webhook registration`
+      );
       return;
     }
 
@@ -262,9 +289,43 @@ export class TelegramService implements OnApplicationBootstrap {
         return;
       }
 
-      this.logger.log(`Telegram webhook registered: ${webhookUrl}`);
+      this.logger.log(`Telegram webhook registered for channel "${channelSlug}": ${webhookUrl}`);
     } catch (error) {
       this.logger.error("Failed to ensure Telegram webhook", error as Error);
     }
+  }
+
+  private getBotToken(channelSlug: string) {
+    if (channelSlug === "main") {
+      return this.configService.get<string>("TELEGRAM_BOT_TOKEN");
+    }
+
+    return this.configService.get<string>(
+      `TELEGRAM_${this.toEnvSlug(channelSlug)}_BOT_TOKEN`
+    );
+  }
+
+  private getWebhookSecret(channelSlug: string) {
+    if (channelSlug === "main") {
+      return this.configService.get<string>("TELEGRAM_WEBHOOK_SECRET");
+    }
+
+    return this.configService.get<string>(
+      `TELEGRAM_${this.toEnvSlug(channelSlug)}_WEBHOOK_SECRET`
+    );
+  }
+
+  private getExplicitWebhookUrl(channelSlug: string) {
+    if (channelSlug === "main") {
+      return this.configService.get<string>("TELEGRAM_WEBHOOK_URL");
+    }
+
+    return this.configService.get<string>(
+      `TELEGRAM_${this.toEnvSlug(channelSlug)}_WEBHOOK_URL`
+    );
+  }
+
+  private toEnvSlug(channelSlug: string) {
+    return channelSlug.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
   }
 }

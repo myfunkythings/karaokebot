@@ -3,6 +3,7 @@ import {
   Controller,
   Get,
   Headers,
+  Param,
   Post
 } from "@nestjs/common";
 import { Public } from "../../common/decorators/public.decorator.js";
@@ -22,6 +23,16 @@ export class TelegramController {
   }
 
   @Public()
+  @Post(":channelSlug/webhook")
+  async handleChannelWebhook(
+    @Param("channelSlug") channelSlug: string,
+    @Body() body: Record<string, unknown>,
+    @Headers("x-telegram-bot-api-secret-token") secret?: string
+  ) {
+    return this.telegramService.handleWebhook(body, secret, channelSlug);
+  }
+
+  @Public()
   @Post("status")
   async getGuestStatus(
     @Body() body: { telegramUserId?: string },
@@ -31,10 +42,29 @@ export class TelegramController {
   }
 
   @Public()
+  @Post(":channelSlug/status")
+  async getChannelGuestStatus(
+    @Param("channelSlug") channelSlug: string,
+    @Body() body: { telegramUserId?: string },
+    @Headers("x-telegram-bot-api-secret-token") secret?: string
+  ) {
+    return this.telegramService.getGuestStatus(body.telegramUserId ?? "", secret, channelSlug);
+  }
+
+  @Public()
   @Get("settings")
   async getBotReplyTemplates(
     @Headers("x-telegram-bot-api-secret-token") secret?: string
   ) {
     return this.telegramService.getBotReplyTemplates(secret);
+  }
+
+  @Public()
+  @Get(":channelSlug/settings")
+  async getChannelBotReplyTemplates(
+    @Param("channelSlug") channelSlug: string,
+    @Headers("x-telegram-bot-api-secret-token") secret?: string
+  ) {
+    return this.telegramService.getBotReplyTemplates(secret, channelSlug);
   }
 }

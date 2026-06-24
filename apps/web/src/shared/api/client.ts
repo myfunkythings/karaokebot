@@ -45,7 +45,10 @@ export const api = {
     apiFetch<{ ok: boolean }>("/auth/logout", {
       method: "POST"
     }),
-  getQueueSnapshot: () => apiFetch<QueueSnapshotDto>("/queue/snapshot"),
+  getQueueSnapshot: (channelSlug?: string) =>
+    apiFetch<QueueSnapshotDto>(
+      `/queue/snapshot${channelSlug ? `?channel=${encodeURIComponent(channelSlug)}` : ""}`
+    ),
   getStats: () => apiFetch<SessionStatsDto | null>("/stats/active-session"),
   getSettings: () => apiFetch<GlobalSettings>("/settings/global"),
   updateSettings: (payload: Partial<GlobalSettings>) =>
@@ -62,17 +65,19 @@ export const api = {
     apiFetch("/sessions/active/close", {
       method: "POST"
     }),
-  nextPerformer: () =>
+  nextPerformer: (channelSlug?: string) =>
     apiFetch("/queue/next", {
-      method: "POST"
+      method: "POST",
+      body: JSON.stringify({ channelSlug })
     }),
   callRequest: (requestId: string) =>
     apiFetch(`/queue/${requestId}/call`, {
       method: "POST"
     }),
-  rebalanceQueue: () =>
+  rebalanceQueue: (channelSlug?: string) =>
     apiFetch("/queue/rebalance", {
-      method: "POST"
+      method: "POST",
+      body: JSON.stringify({ channelSlug })
     }),
   moveRequest: (requestId: string, position: number) =>
     apiFetch(`/queue/${requestId}/move`, {
@@ -84,9 +89,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({})
     }),
-  cancelGuestFuture: (guestId: string) =>
+  cancelGuestFuture: (guestId: string, channelSlug?: string) =>
     apiFetch(`/queue/guest/${guestId}/cancel-future`, {
-      method: "POST"
+      method: "POST",
+      body: JSON.stringify({ channelSlug })
     }),
   undoLastAction: () =>
     apiFetch("/queue/undo", {
@@ -97,6 +103,7 @@ export const api = {
     rawText: string;
     artist?: string;
     title?: string;
+    channelSlug?: string;
   }) =>
     apiFetch("/song-requests/manual", {
       method: "POST",

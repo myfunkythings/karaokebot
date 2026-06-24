@@ -7,28 +7,23 @@ import { ManualRequestForm } from "../features/queue/ManualRequestForm";
 import { QueueSideTools } from "../features/queue/QueueSideTools";
 import { MiniSessionStatus } from "../features/session-control/MiniSessionStatus";
 import { CloseShiftSection } from "../features/session-control/CloseShiftSection";
-import { mockQueueSnapshot, mockStats, mockUser } from "../shared/mock/hostPanelMock";
+import { mockQueueSnapshot, mockUser } from "../shared/mock/hostPanelMock";
 
 const loginPath = `${import.meta.env.BASE_URL}login`;
 
 export function DashboardPage() {
   const queryClient = useQueryClient();
   const [queueSearchValue, setQueueSearchValue] = useState("");
+  const [selectedChannelSlug, setSelectedChannelSlug] = useState("main");
   const meQuery = useQuery({
     queryKey: ["auth", "me"],
     queryFn: api.me
   });
   const snapshotQuery = useQuery({
-    queryKey: ["queue", "snapshot"],
-    queryFn: api.getQueueSnapshot,
+    queryKey: ["queue", "snapshot", selectedChannelSlug],
+    queryFn: () => api.getQueueSnapshot(selectedChannelSlug),
     refetchInterval: 5_000
   });
-  const statsQuery = useQuery({
-    queryKey: ["stats", "active"],
-    queryFn: api.getStats,
-    refetchInterval: 10_000
-  });
-
   const logoutMutation = useMutation({
     mutationFn: api.logout,
     onSuccess: async () => {
@@ -53,7 +48,6 @@ export function DashboardPage() {
     ((meQuery.isError && snapshotQuery.isError) || (!user && !snapshot && !isLoading));
   const resolvedUser = devOfflineMode ? mockUser : user;
   const resolvedSnapshot = devOfflineMode ? mockQueueSnapshot : snapshot;
-  const resolvedStats = devOfflineMode ? mockStats : (statsQuery.data ?? null);
 
   if (isLoading) {
     return <main className="page-shell">Собираем оперативный пульт…</main>;
@@ -72,6 +66,8 @@ export function DashboardPage() {
             snapshot={resolvedSnapshot}
             canManage={canManage}
             searchValue={queueSearchValue}
+            selectedChannelSlug={selectedChannelSlug}
+            onChannelChange={setSelectedChannelSlug}
           />
         </div>
         <aside className="dashboard-column dashboard-column--side right-sidebar">
@@ -80,11 +76,10 @@ export function DashboardPage() {
             onSearchChange={setQueueSearchValue}
             onClearSearch={() => setQueueSearchValue("")}
           />
-          <ManualRequestForm canManage={canManage} />
+          <ManualRequestForm canManage={canManage} channelSlug={selectedChannelSlug} />
           <MiniSessionStatus
             activeSession={resolvedSnapshot.session}
             snapshot={resolvedSnapshot}
-            stats={resolvedStats}
             canManage={canManage}
           />
           <CloseShiftSection
