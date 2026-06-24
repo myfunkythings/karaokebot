@@ -47,6 +47,21 @@ const defaultSettings = {
   }
 };
 
+const defaultChannels = [
+  {
+    slug: "main",
+    name: "Основной бот",
+    color: "#203B47",
+    sortOrder: 10
+  },
+  {
+    slug: "secondary",
+    name: "Второй бот",
+    color: "#DE7440",
+    sortOrder: 20
+  }
+];
+
 async function upsertOwner() {
   const login = process.env.OWNER_LOGIN ?? "owner";
   const password = process.env.OWNER_PASSWORD ?? "change-me-now";
@@ -70,6 +85,29 @@ async function upsertOwner() {
   });
 }
 
+async function upsertChannels() {
+  await Promise.all(
+    defaultChannels.map((channel) =>
+      prisma.requestChannel.upsert({
+        where: { slug: channel.slug },
+        update: {
+          name: channel.name,
+          color: channel.color,
+          sortOrder: channel.sortOrder,
+          isActive: true
+        },
+        create: {
+          slug: channel.slug,
+          name: channel.name,
+          color: channel.color,
+          sortOrder: channel.sortOrder,
+          isActive: true
+        }
+      })
+    )
+  );
+}
+
 async function upsertSettings() {
   await Promise.all(
     Object.entries(defaultSettings).map(([key, value]) =>
@@ -84,6 +122,7 @@ async function upsertSettings() {
 
 async function main() {
   await upsertOwner();
+  await upsertChannels();
   await upsertSettings();
 }
 

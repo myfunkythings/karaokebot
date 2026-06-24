@@ -8,6 +8,7 @@ import { SessionsService } from "../sessions/sessions.service.js";
 import { QueueService } from "../queue/queue.service.js";
 import { SettingsService } from "../settings/settings.service.js";
 import { AuditService } from "../audit/audit.service.js";
+import { RequestChannelsService } from "../request-channels/request-channels.service.js";
 
 type TelegramCreateResult =
   | {
@@ -30,7 +31,8 @@ export class SongRequestsService {
     private readonly sessionsService: SessionsService,
     private readonly queueService: QueueService,
     private readonly settingsService: SettingsService,
-    private readonly auditService: AuditService
+    private readonly auditService: AuditService,
+    private readonly requestChannelsService: RequestChannelsService
   ) {}
 
   async createManualRequest(input: {
@@ -39,8 +41,12 @@ export class SongRequestsService {
     artist?: string | null;
     title?: string | null;
     actorStaffId: string;
+    channelSlug?: string | null;
   }) {
     const session = await this.sessionsService.getRequiredActiveSession();
+    const channel = await this.requestChannelsService.getRequiredChannelBySlug(
+      input.channelSlug
+    );
 
     return this.prisma.$transaction(async (tx) => {
       await this.prisma.acquireSessionLock(session.id, tx);
@@ -50,13 +56,15 @@ export class SongRequestsService {
         data: {
           sessionId: session.id,
           guestProfileId: guest.id,
+          channelId: channel.id,
           source: "manual",
           rawText: input.rawText.trim(),
           artist: input.artist?.trim() || parsed.artist,
           title: input.title?.trim() || parsed.title
         },
         include: {
-          guestProfile: true
+          guestProfile: true,
+          channel: true
         }
       });
 
@@ -69,7 +77,9 @@ export class SongRequestsService {
           actionType: "manual_request_created",
           payloadJson: {
             requestId: request.id,
-            guestProfileId: guest.id
+            guestProfileId: guest.id,
+            channelId: channel.id,
+            channelSlug: channel.slug
           }
         },
         tx
@@ -88,9 +98,13 @@ export class SongRequestsService {
     firstName?: string | null;
     lastName?: string | null;
     rawText: string;
+    channelSlug?: string | null;
   }): Promise<TelegramCreateResult> {
     const session = await this.sessionsService.getActiveSession();
     const settings = await this.settingsService.getGlobalSettings();
+    const channel = await this.requestChannelsService.getRequiredChannelBySlug(
+      input.channelSlug
+    );
     const guest = await this.guestsService.upsertTelegramGuest({
       telegramUserId: input.telegramUserId,
       telegramUsername: input.telegramUsername,
@@ -110,7 +124,8 @@ export class SongRequestsService {
       await this.prisma.acquireSessionLock(session.id, tx);
       const latestRequest = await tx.songRequest.findFirst({
         where: {
-          guestProfileId: guest.id
+          guestProfileId: guest.id,
+          channelId: channel.id
         },
         orderBy: { requestedAt: "desc" }
       });
@@ -132,6 +147,7 @@ export class SongRequestsService {
         data: {
           sessionId: session.id,
           guestProfileId: guest.id,
+          channelId: channel.id,
           source: "telegram",
           telegramUpdateId: input.telegramUpdateId,
           telegramMessageId: input.telegramMessageId ?? null,
@@ -150,7 +166,9 @@ export class SongRequestsService {
           actionType: "telegram_request_created",
           payloadJson: {
             requestId: request.id,
-            parseConfidence: parsed.parseConfidence
+            parseConfidence: parsed.parseConfidence,
+            channelId: channel.id,
+            channelSlug: channel.slug
           }
         },
         tx
@@ -173,7 +191,7 @@ export class SongRequestsService {
     return this.prisma.$transaction(async (tx) => {
       const existingRequest = await tx.songRequest.findUnique({
         where: { id: input.requestId },
-        include: { guestProfile: true }
+        include: { guestProfile: true, channel: true }
       });
 
       if (!existingRequest) {
@@ -190,7 +208,8 @@ export class SongRequestsService {
           title: parsed.title
         },
         include: {
-          guestProfile: true
+          guestProfile: true,
+          channel: true
         }
       });
 
@@ -203,7 +222,9 @@ export class SongRequestsService {
           payloadJson: {
             requestId: existingRequest.id,
             previousRawText: existingRequest.rawText,
-            nextRawText: updatedRequest.rawText
+            nextRawText: updatedRequest.rawText,
+            channelId: existingRequest.channelId,
+            channelSlug: existingRequest.channel.slug
           }
         },
         tx
@@ -214,9 +235,10 @@ export class SongRequestsService {
     });
   }
 
-  async getTelegramGuestStatusSummary(telegramUserId: string) {
+  async getTelegramGuestStatusSummary(telegramUserId: string, channelSlug?: string | null) {
     const session = await this.sessionsService.getActiveSession();
     const settings = await this.settingsService.getGlobalSettings();
+    const channel = await this.requestChannelsService.getRequiredChannelBySlug(channelSlug);
 
     if (!session) {
       return settings.botReplyTemplates.requestRejectedNoSession;
@@ -233,6 +255,7 @@ export class SongRequestsService {
       where: {
         sessionId: session.id,
         guestProfileId: guest.id,
+        channelId: channel.id,
         status: SongRequestStatus.current
       }
     });
@@ -245,6 +268,7 @@ export class SongRequestsService {
       where: {
         sessionId: session.id,
         guestProfileId: guest.id,
+        channelId: channel.id,
         status: SongRequestStatus.queued
       },
       orderBy: { queueRank: "asc" }
@@ -266,7 +290,7 @@ export class SongRequestsService {
   async getRequestById(requestId: string) {
     const request = await this.prisma.songRequest.findUnique({
       where: { id: requestId },
-      include: { guestProfile: true }
+      include: { guestProfile: true, channel: true }
     });
     if (!request) {
       throw new NotFoundException("Song request not found");

@@ -151,6 +151,14 @@ function QueueTableRowCells({
           }}
         />
         <span className="queue-table__request-meta">Поступила в {getCreatedAtLabel(row.request.requestedAt)}</span>
+        <span className="request-channel-badge">
+          <span
+            className="request-channel-badge__dot"
+            style={{ background: row.request.channel.color ?? "#58707b" }}
+            aria-hidden="true"
+          />
+          {row.request.channel.name}
+        </span>
       </td>
       <td>
         <div className="queue-guest-cell">

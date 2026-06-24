@@ -17,6 +17,7 @@ import { AuditService } from "../audit/audit.service.js";
 import { SessionsService } from "../sessions/sessions.service.js";
 import { buildQueuePlan } from "./queue-order.js";
 import { SettingsService } from "../settings/settings.service.js";
+import { RequestChannelsService } from "../request-channels/request-channels.service.js";
 
 type RequestSnapshot = {
   id: string;
@@ -38,10 +39,16 @@ export class QueueService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
     private readonly sessionsService: SessionsService,
-    private readonly settingsService: SettingsService
+    private readonly settingsService: SettingsService,
+    private readonly requestChannelsService: RequestChannelsService
   ) {}
 
-  async getSnapshot(actorStaffId?: string): Promise<QueueSnapshotDto> {
+  async getSnapshot(
+    channelSlug?: string | null,
+    actorStaffId?: string
+  ): Promise<QueueSnapshotDto> {
+    const channels = await this.requestChannelsService.getActiveChannels();
+    const channel = await this.requestChannelsService.getRequiredChannelBySlug(channelSlug);
     const session = await this.sessionsService.getActiveSession();
     if (actorStaffId) {
       await this.touchPresence(actorStaffId);
@@ -51,6 +58,8 @@ export class QueueService {
       return {
         session: null,
         queueVersion: null,
+        channels: channels.map(this.toRequestChannelDto),
+        activeChannelSlug: channel.slug,
         current: null,
         queued: [],
         archive: [],
@@ -66,8 +75,8 @@ export class QueueService {
     }
 
     const requests = await this.prisma.songRequest.findMany({
-      where: { sessionId: session.id },
-      include: { guestProfile: true },
+      where: { sessionId: session.id, channelId: channel.id },
+      include: { guestProfile: true, channel: true },
       orderBy: [{ queueRank: "asc" }, { requestedAt: "asc" }]
     });
 
@@ -89,7 +98,7 @@ export class QueueService {
         return rightAt - leftAt;
       });
 
-    const aggregated = await this.getAggregatedStats(session.id);
+    const aggregated = await this.getAggregatedStats(session.id, channel.id);
 
     return {
       session: {
@@ -102,11 +111,13 @@ export class QueueService {
         timezone: session.timezone
       },
       queueVersion: session.version,
+      channels: channels.map(this.toRequestChannelDto),
+      activeChannelSlug: channel.slug,
       current: current ? toSongRequestDto(current) : null,
       queued: queued.map(toSongRequestDto),
       archive: archive.map(toSongRequestDto),
       activeOperators: await this.getActiveOperators(),
-      recentActions: await this.getRecentActions(session.id),
+      recentActions: await this.getRecentActions(session.id, channel.slug),
       stats: aggregated
     };
   }
@@ -118,17 +129,22 @@ export class QueueService {
     expectedQueueVersion: number
   ) {
     const session = await this.sessionsService.getRequiredActiveSession();
+    let changedChannelSlug: string | null = null;
 
     await this.prisma.$transaction(async (tx) => {
       await this.prisma.acquireSessionLock(session.id, tx);
       await this.assertExpectedQueueVersion(session.id, expectedQueueVersion, tx);
 
-      const request = await tx.songRequest.findUnique({ where: { id: requestId } });
+      const request = await tx.songRequest.findUnique({
+        where: { id: requestId },
+        include: { channel: true }
+      });
       if (!request || request.sessionId !== session.id || request.status !== SongRequestStatus.queued) {
         throw new NotFoundException("Queued request not found");
       }
+      changedChannelSlug = request.channel.slug;
 
-      const snapshots = await this.snapshotQueuedRequests(session.id, tx);
+      const snapshots = await this.snapshotQueuedRequests(session.id, tx, request.channelId);
 
       await tx.songRequest.update({
         where: { id: requestId },
@@ -148,7 +164,9 @@ export class QueueService {
           actionType: "queue_reordered",
           payloadJson: {
             requestId,
-            targetPosition
+            targetPosition,
+            channelId: request.channelId,
+            channelSlug: request.channel.slug
           },
           inversePayloadJson: {
             requestSnapshots: snapshots
@@ -160,7 +178,7 @@ export class QueueService {
 
     });
 
-    return this.getSnapshot();
+    return this.getSnapshot(changedChannelSlug, actorStaffId);
   }
 
   async deferRequest(
@@ -170,6 +188,7 @@ export class QueueService {
     positionsOverride?: number
   ) {
     const session = await this.sessionsService.getRequiredActiveSession();
+    let changedChannelSlug: string | null = null;
     const settings = (session.configSnapshotJson ??
       (await this.settingsService.getGlobalSettings())) as Awaited<
       ReturnType<SettingsService["getGlobalSettings"]>
@@ -179,17 +198,23 @@ export class QueueService {
       await this.prisma.acquireSessionLock(session.id, tx);
       await this.assertExpectedQueueVersion(session.id, expectedQueueVersion, tx);
 
+      const request = await tx.songRequest.findUnique({
+        where: { id: requestId },
+        include: { channel: true }
+      });
+      if (!request || request.sessionId !== session.id || request.status !== SongRequestStatus.queued) {
+        throw new NotFoundException("Queued request not found");
+      }
+      changedChannelSlug = request.channel.slug;
+
       const queued = await tx.songRequest.findMany({
         where: {
           sessionId: session.id,
+          channelId: request.channelId,
           status: SongRequestStatus.queued
         },
         orderBy: { queueRank: "asc" }
       });
-      const request = queued.find((item) => item.id === requestId);
-      if (!request) {
-        throw new NotFoundException("Queued request not found");
-      }
 
       const snapshots = this.toRequestSnapshots(queued);
       const currentRank = request.queueRank ?? queued.findIndex((item) => item.id === requestId) + 1;
@@ -216,7 +241,9 @@ export class QueueService {
           actionType: "request_deferred",
           payloadJson: {
             requestId,
-            targetRank
+            targetRank,
+            channelId: request.channelId,
+            channelSlug: request.channel.slug
           },
           inversePayloadJson: {
             requestSnapshots: snapshots
@@ -228,19 +255,25 @@ export class QueueService {
 
     });
 
-    return this.getSnapshot();
+    return this.getSnapshot(changedChannelSlug, actorStaffId);
   }
 
-  async rebalanceQueue(actorStaffId: string, expectedQueueVersion: number) {
+  async rebalanceQueue(
+    actorStaffId: string,
+    expectedQueueVersion: number,
+    channelSlug?: string | null
+  ) {
     const session = await this.sessionsService.getRequiredActiveSession();
+    const channel = await this.requestChannelsService.getRequiredChannelBySlug(channelSlug);
     await this.prisma.$transaction(async (tx) => {
       await this.prisma.acquireSessionLock(session.id, tx);
       await this.assertExpectedQueueVersion(session.id, expectedQueueVersion, tx);
-      const snapshots = await this.snapshotQueuedRequests(session.id, tx);
+      const snapshots = await this.snapshotQueuedRequests(session.id, tx, channel.id);
 
       await tx.songRequest.updateMany({
         where: {
           sessionId: session.id,
+          channelId: channel.id,
           status: SongRequestStatus.queued
         },
         data: {
@@ -256,7 +289,7 @@ export class QueueService {
           actorType: "staff",
           actorStaffId,
           actionType: "queue_rebalanced",
-          payloadJson: { clearedPins: true },
+          payloadJson: { clearedPins: true, channelId: channel.id, channelSlug: channel.slug },
           inversePayloadJson: {
             requestSnapshots: snapshots
           },
@@ -267,11 +300,16 @@ export class QueueService {
 
     });
 
-    return this.getSnapshot();
+    return this.getSnapshot(channel.slug, actorStaffId);
   }
 
-  async moveToNextPerformer(actorStaffId: string, expectedQueueVersion: number) {
+  async moveToNextPerformer(
+    actorStaffId: string,
+    expectedQueueVersion: number,
+    channelSlug?: string | null
+  ) {
     const session = await this.sessionsService.getRequiredActiveSession();
+    const channel = await this.requestChannelsService.getRequiredChannelBySlug(channelSlug);
 
     await this.prisma.$transaction(async (tx) => {
       await this.prisma.acquireSessionLock(session.id, tx);
@@ -280,12 +318,14 @@ export class QueueService {
       const current = await tx.songRequest.findFirst({
         where: {
           sessionId: session.id,
+          channelId: channel.id,
           status: SongRequestStatus.current
         }
       });
       const next = await tx.songRequest.findFirst({
         where: {
           sessionId: session.id,
+          channelId: channel.id,
           status: SongRequestStatus.queued
         },
         orderBy: { queueRank: "asc" }
@@ -335,7 +375,9 @@ export class QueueService {
           actionType: "next_performer",
           payloadJson: {
             fromCurrentId: current?.id ?? null,
-            toCurrentId: next?.id ?? null
+            toCurrentId: next?.id ?? null,
+            channelId: channel.id,
+            channelSlug: channel.slug
           },
           inversePayloadJson: {
             requestSnapshots: snapshots
@@ -347,7 +389,7 @@ export class QueueService {
 
     });
 
-    return this.getSnapshot();
+    return this.getSnapshot(channel.slug, actorStaffId);
   }
 
   async callRequest(
@@ -356,24 +398,28 @@ export class QueueService {
     expectedQueueVersion: number
   ) {
     const session = await this.sessionsService.getRequiredActiveSession();
+    let changedChannelSlug: string | null = null;
 
     await this.prisma.$transaction(async (tx) => {
       await this.prisma.acquireSessionLock(session.id, tx);
       await this.assertExpectedQueueVersion(session.id, expectedQueueVersion, tx);
 
-      const current = await tx.songRequest.findFirst({
-        where: {
-          sessionId: session.id,
-          status: SongRequestStatus.current
-        }
-      });
       const request = await tx.songRequest.findUnique({
-        where: { id: requestId }
+        where: { id: requestId },
+        include: { channel: true }
       });
 
       if (!request || request.sessionId !== session.id || request.status !== SongRequestStatus.queued) {
         throw new NotFoundException("Queued request not found");
       }
+      changedChannelSlug = request.channel.slug;
+      const current = await tx.songRequest.findFirst({
+        where: {
+          sessionId: session.id,
+          channelId: request.channelId,
+          status: SongRequestStatus.current
+        }
+      });
 
       const snapshots = this.toRequestSnapshots(
         [current, request].filter(Boolean) as NonNullable<typeof request>[]
@@ -413,7 +459,9 @@ export class QueueService {
           actionType: "request_called",
           payloadJson: {
             fromCurrentId: current?.id ?? null,
-            toCurrentId: request.id
+            toCurrentId: request.id,
+            channelId: request.channelId,
+            channelSlug: request.channel.slug
           },
           inversePayloadJson: {
             requestSnapshots: snapshots
@@ -424,15 +472,17 @@ export class QueueService {
       );
     });
 
-    return this.getSnapshot();
+    return this.getSnapshot(changedChannelSlug, actorStaffId);
   }
 
   async cancelGuestFutureRequests(
     guestId: string,
     actorStaffId: string,
-    expectedQueueVersion: number
+    expectedQueueVersion: number,
+    channelSlug?: string | null
   ) {
     const session = await this.sessionsService.getRequiredActiveSession();
+    const channel = await this.requestChannelsService.getRequiredChannelBySlug(channelSlug);
 
     await this.prisma.$transaction(async (tx) => {
       await this.prisma.acquireSessionLock(session.id, tx);
@@ -441,6 +491,7 @@ export class QueueService {
       const affected = await tx.songRequest.findMany({
         where: {
           sessionId: session.id,
+          channelId: channel.id,
           guestProfileId: guestId,
           status: {
             in: [SongRequestStatus.queued, SongRequestStatus.current]
@@ -480,7 +531,9 @@ export class QueueService {
           actionType: "guest_left_venue",
           payloadJson: {
             guestId,
-            affectedRequestIds: affected.map((request) => request.id)
+            affectedRequestIds: affected.map((request) => request.id),
+            channelId: channel.id,
+            channelSlug: channel.slug
           },
           inversePayloadJson: {
             requestSnapshots: snapshots
@@ -492,15 +545,20 @@ export class QueueService {
 
     });
 
-    return this.getSnapshot();
+    return this.getSnapshot(channel.slug, actorStaffId);
   }
 
-  async undoLastAction(actorStaffId: string, expectedQueueVersion: number) {
+  async undoLastAction(
+    actorStaffId: string,
+    expectedQueueVersion: number,
+    channelSlug?: string | null
+  ) {
     const session = await this.sessionsService.getRequiredActiveSession();
+    const channel = await this.requestChannelsService.getRequiredChannelBySlug(channelSlug);
     await this.prisma.$transaction(async (tx) => {
       await this.prisma.acquireSessionLock(session.id, tx);
       await this.assertExpectedQueueVersion(session.id, expectedQueueVersion, tx);
-      const lastAction = await this.auditService.getLastUndoableAction(session.id, tx);
+      const lastAction = await this.getLastUndoableActionForChannel(session.id, channel.slug, tx);
       if (!lastAction || !lastAction.inversePayloadJson || lastAction.undoneByActionId) {
         throw new NotFoundException("No undoable action");
       }
@@ -537,7 +595,8 @@ export class QueueService {
           actorStaffId,
           actionType: "undo",
           payloadJson: {
-            originalActionId: lastAction.id
+            originalActionId: lastAction.id,
+            channelSlug: channel.slug
           }
         },
         tx
@@ -546,7 +605,7 @@ export class QueueService {
 
     });
 
-    return this.getSnapshot();
+    return this.getSnapshot(channel.slug, actorStaffId);
   }
 
   async refreshSessionDerivedState(
@@ -629,21 +688,32 @@ export class QueueService {
       prioritizeRequestTime: true
     };
 
-    const queuePlan = buildQueuePlan(
-      queuedRequests.map((request) => ({
-        id: request.id,
-        guestProfileId: request.guestProfileId,
-        requestedAt: request.requestedAt,
-        orderMode: request.orderMode,
-        manualRank: request.manualRank
-      })),
-      new Map(
-        [...statsMap.values()].map((item) => [item.guestProfileId, { sungCount: item.sungCount }])
-      ),
-      flags
-    );
-
-    const queuePlanMap = new Map(queuePlan.map((item) => [item.id, item]));
+    const queuePlanMap = new Map<
+      string,
+      { queueRank: number; orderMode: OrderMode; manualRank: number | null }
+    >();
+    const channelIds = [...new Set(queuedRequests.map((request) => request.channelId))];
+    for (const channelId of channelIds) {
+      const channelQueuedRequests = queuedRequests.filter(
+        (request) => request.channelId === channelId
+      );
+      const queuePlan = buildQueuePlan(
+        channelQueuedRequests.map((request) => ({
+          id: request.id,
+          guestProfileId: request.guestProfileId,
+          requestedAt: request.requestedAt,
+          orderMode: request.orderMode,
+          manualRank: request.manualRank
+        })),
+        new Map(
+          [...statsMap.values()].map((item) => [item.guestProfileId, { sungCount: item.sungCount }])
+        ),
+        flags
+      );
+      for (const item of queuePlan) {
+        queuePlanMap.set(item.id, item);
+      }
+    }
     for (const request of queuedRequests) {
       const planned = queuePlanMap.get(request.id);
       await tx.songRequest.update({
@@ -719,6 +789,27 @@ export class QueueService {
     });
   }
 
+  private async getLastUndoableActionForChannel(
+    sessionId: string,
+    channelSlug: string,
+    tx: Prisma.TransactionClient = this.prisma
+  ) {
+    const actions = await tx.actionLog.findMany({
+      where: {
+        sessionId,
+        isUndoable: true,
+        undoneByActionId: null
+      },
+      orderBy: { createdAt: "desc" },
+      take: 30
+    });
+
+    return actions.find((action) => {
+      const payload = action.payloadJson as { channelSlug?: string };
+      return payload.channelSlug === channelSlug;
+    }) ?? null;
+  }
+
   private async getActiveOperators() {
     const since = new Date(Date.now() - 1000 * 60 * 2);
     const rows = await this.prisma.staffPresence.findMany({
@@ -746,25 +837,31 @@ export class QueueService {
     }));
   }
 
-  private async getRecentActions(sessionId: string) {
+  private async getRecentActions(sessionId: string, channelSlug: string) {
     const actions = await this.prisma.actionLog.findMany({
       where: { sessionId },
       include: {
         actorStaff: true
       },
       orderBy: { createdAt: "desc" },
-      take: 8
+      take: 30
     });
 
-    return actions.map((action) => ({
-      id: action.id,
-      actorDisplayName:
-        action.actorStaff?.displayName ??
-        (action.actorType === "telegram" ? "Telegram" : "Система"),
-      actionType: action.actionType,
-      label: this.getActionLabel(action.actionType),
-      createdAt: action.createdAt.toISOString()
-    }));
+    return actions
+      .filter((action) => {
+        const payload = action.payloadJson as { channelSlug?: string };
+        return !payload.channelSlug || payload.channelSlug === channelSlug;
+      })
+      .slice(0, 8)
+      .map((action) => ({
+        id: action.id,
+        actorDisplayName:
+          action.actorStaff?.displayName ??
+          (action.actorType === "telegram" ? "Telegram" : "Система"),
+        actionType: action.actionType,
+        label: this.getActionLabel(action.actionType),
+        createdAt: action.createdAt.toISOString()
+      }));
   }
 
   private getActionLabel(actionType: string) {
@@ -786,9 +883,9 @@ export class QueueService {
     return labels[actionType] ?? actionType;
   }
 
-  private async getAggregatedStats(sessionId: string) {
+  private async getAggregatedStats(sessionId: string, channelId: string) {
     const requests = await this.prisma.songRequest.findMany({
-      where: { sessionId }
+      where: { sessionId, channelId }
     });
     const totalRequests = requests.length;
     const totalSung = requests.filter((request) => request.status === SongRequestStatus.sung).length;
@@ -816,10 +913,15 @@ export class QueueService {
     };
   }
 
-  private async snapshotQueuedRequests(sessionId: string, tx: Prisma.TransactionClient) {
+  private async snapshotQueuedRequests(
+    sessionId: string,
+    tx: Prisma.TransactionClient,
+    channelId: string
+  ) {
     const queued = await tx.songRequest.findMany({
       where: {
         sessionId,
+        channelId,
         status: SongRequestStatus.queued
       },
       orderBy: { queueRank: "asc" }
@@ -855,5 +957,19 @@ export class QueueService {
       deferCount: request.deferCount,
       note: request.note
     }));
+  }
+
+  private toRequestChannelDto(channel: {
+    id: string;
+    slug: string;
+    name: string;
+    color: string | null;
+  }) {
+    return {
+      id: channel.id,
+      slug: channel.slug,
+      name: channel.name,
+      color: channel.color
+    };
   }
 }

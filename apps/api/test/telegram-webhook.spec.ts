@@ -29,6 +29,15 @@ describe("resolveTelegramWebhookUrl", () => {
     ).toBe("http://calc1.printninjas.ru/karaoke/api/telegram/webhook");
   });
 
+  it("builds channel webhook url for non-main bots", () => {
+    expect(
+      resolveTelegramWebhookUrl({
+        domain: "calc1.printninjas.ru",
+        channelSlug: "secondary"
+      })
+    ).toBe("https://calc1.printninjas.ru/karaoke/api/telegram/secondary/webhook");
+  });
+
   it("returns null when no domain or explicit url is provided", () => {
     expect(resolveTelegramWebhookUrl({})).toBeNull();
   });

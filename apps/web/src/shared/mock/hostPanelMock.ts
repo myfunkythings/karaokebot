@@ -1,6 +1,18 @@
 import type { LoginResponseDto, QueueSnapshotDto, SessionStatsDto } from "@karaoke/contracts";
 
 const now = Date.now();
+const mainChannel = {
+  id: "channel-main",
+  slug: "main",
+  name: "Основной бот",
+  color: "#203B47"
+};
+const secondaryChannel = {
+  id: "channel-secondary",
+  slug: "secondary",
+  name: "Второй бот",
+  color: "#DE7440"
+};
 
 function minutesAgo(minutes: number) {
   return new Date(now - minutes * 60_000).toISOString();
@@ -24,9 +36,12 @@ export const mockQueueSnapshot: QueueSnapshotDto = {
     timezone: "Europe/Moscow"
   },
   queueVersion: 7,
+  channels: [mainChannel, secondaryChannel],
+  activeChannelSlug: "main",
   current: {
     id: "req-current",
     sessionId: "session-dev",
+    channel: mainChannel,
     guest: {
       id: "guest-current",
       displayName: "Лена",
@@ -53,6 +68,7 @@ export const mockQueueSnapshot: QueueSnapshotDto = {
     {
       id: "req-1",
       sessionId: "session-dev",
+      channel: mainChannel,
       guest: {
         id: "guest-1",
         displayName: "Андрей",
@@ -78,6 +94,7 @@ export const mockQueueSnapshot: QueueSnapshotDto = {
     {
       id: "req-2",
       sessionId: "session-dev",
+      channel: mainChannel,
       guest: {
         id: "guest-2",
         displayName: "Маша",
@@ -103,6 +120,7 @@ export const mockQueueSnapshot: QueueSnapshotDto = {
     {
       id: "req-3",
       sessionId: "session-dev",
+      channel: mainChannel,
       guest: {
         id: "guest-3",
         displayName: "Стас",
@@ -128,6 +146,7 @@ export const mockQueueSnapshot: QueueSnapshotDto = {
     {
       id: "req-4",
       sessionId: "session-dev",
+      channel: mainChannel,
       guest: {
         id: "guest-4",
         displayName: "Ира",
@@ -153,6 +172,7 @@ export const mockQueueSnapshot: QueueSnapshotDto = {
     {
       id: "req-5",
       sessionId: "session-dev",
+      channel: mainChannel,
       guest: {
         id: "guest-5",
         displayName: "Слава",
@@ -178,6 +198,7 @@ export const mockQueueSnapshot: QueueSnapshotDto = {
     {
       id: "req-6",
       sessionId: "session-dev",
+      channel: mainChannel,
       guest: {
         id: "guest-6",
         displayName: "Юля",
@@ -205,6 +226,7 @@ export const mockQueueSnapshot: QueueSnapshotDto = {
     {
       id: "arch-1",
       sessionId: "session-dev",
+      channel: mainChannel,
       guest: {
         id: "guest-2",
         displayName: "Маша",
@@ -230,6 +252,7 @@ export const mockQueueSnapshot: QueueSnapshotDto = {
     {
       id: "arch-2",
       sessionId: "session-dev",
+      channel: mainChannel,
       guest: {
         id: "guest-5",
         displayName: "Слава",

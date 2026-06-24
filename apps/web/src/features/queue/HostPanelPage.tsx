@@ -37,7 +37,8 @@ export function HostPanelPage({
   };
 
   const nextMutation = useMutation({
-    mutationFn: api.nextPerformer,
+    mutationFn: (expectedQueueVersion: number) =>
+      api.nextPerformer(expectedQueueVersion, snapshot.activeChannelSlug),
     onSuccess: refreshEverything,
     onError: handleMutationError
   });
@@ -55,7 +56,7 @@ export function HostPanelPage({
   });
   const cancelGuestMutation = useMutation({
     mutationFn: ({ guestId, expectedQueueVersion }: { guestId: string; expectedQueueVersion: number }) =>
-      api.cancelGuestFuture(guestId, expectedQueueVersion),
+      api.cancelGuestFuture(guestId, expectedQueueVersion, snapshot.activeChannelSlug),
     onSuccess: refreshEverything,
     onError: handleMutationError
   });
@@ -78,7 +79,8 @@ export function HostPanelPage({
     onSuccess: refreshEverything
   });
   const undoMutation = useMutation({
-    mutationFn: api.undoLastAction,
+    mutationFn: (expectedQueueVersion: number) =>
+      api.undoLastAction(expectedQueueVersion, snapshot.activeChannelSlug),
     onSuccess: refreshEverything,
     onError: handleMutationError
   });
@@ -201,6 +203,12 @@ export function HostPanelPage({
             <div className="operational-toolbar__fact">
               <span>В очереди</span>
               <strong>{snapshot.queued.length}</strong>
+            </div>
+            <div className="operational-toolbar__fact">
+              <span>Админка</span>
+              <strong>
+                {snapshot.channels.find((channel) => channel.slug === snapshot.activeChannelSlug)?.name ?? "Основной бот"}
+              </strong>
             </div>
           </div>
         </div>

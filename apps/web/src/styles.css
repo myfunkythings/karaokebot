@@ -1970,6 +1970,13 @@ button:focus-visible {
   justify-content: flex-end;
 }
 
+.request-channel-badge__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
 .queue-card {
   display: grid;
   gap: 10px;
@@ -2225,6 +2232,22 @@ button:focus-visible {
   font-size: 12px;
   line-height: 16px;
   color: #8a99a4;
+}
+
+.request-channel-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 5px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #f2f5f7;
+  color: #526674;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
 }
 
 .queue-table__empty {

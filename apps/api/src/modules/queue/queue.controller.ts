@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { CurrentUser } from "../../common/decorators/current-user.decorator.js";
 import { Roles } from "../../common/decorators/roles.decorator.js";
 import type { AuthenticatedUser } from "../../common/types/authenticated-user.js";
-import { DeferRequestDto, MoveRequestDto, QueueVersionDto } from "./queue.dto.js";
+import { ChannelScopedQueueVersionDto, DeferRequestDto, MoveRequestDto, QueueVersionDto } from "./queue.dto.js";
 import { QueueService } from "./queue.service.js";
 
 @Controller("queue")
@@ -11,26 +11,37 @@ export class QueueController {
 
   @Roles("viewer", "host", "owner")
   @Get("snapshot")
-  async getSnapshot(@CurrentUser() user: AuthenticatedUser) {
-    return this.queueService.getSnapshot(user.id);
+  async getSnapshot(
+    @Query("channel") channelSlug: string | undefined,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.queueService.getSnapshot(channelSlug, user.id);
   }
 
   @Roles("host", "owner")
   @Post("next")
   async moveToNextPerformer(
-    @Body() body: QueueVersionDto,
+    @Body() body: ChannelScopedQueueVersionDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    return this.queueService.moveToNextPerformer(user.id, body.expectedQueueVersion);
+    return this.queueService.moveToNextPerformer(
+      user.id,
+      body.expectedQueueVersion,
+      body.channelSlug
+    );
   }
 
   @Roles("host", "owner")
   @Post("rebalance")
   async rebalanceQueue(
-    @Body() body: QueueVersionDto,
+    @Body() body: ChannelScopedQueueVersionDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    return this.queueService.rebalanceQueue(user.id, body.expectedQueueVersion);
+    return this.queueService.rebalanceQueue(
+      user.id,
+      body.expectedQueueVersion,
+      body.channelSlug
+    );
   }
 
   @Roles("host", "owner")
@@ -77,22 +88,27 @@ export class QueueController {
   @Post("guest/:guestId/cancel-future")
   async cancelGuestFutureRequests(
     @Param("guestId") guestId: string,
-    @Body() body: QueueVersionDto,
+    @Body() body: ChannelScopedQueueVersionDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
     return this.queueService.cancelGuestFutureRequests(
       guestId,
       user.id,
-      body.expectedQueueVersion
+      body.expectedQueueVersion,
+      body.channelSlug
     );
   }
 
   @Roles("host", "owner")
   @Post("undo")
   async undo(
-    @Body() body: QueueVersionDto,
+    @Body() body: ChannelScopedQueueVersionDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    return this.queueService.undoLastAction(user.id, body.expectedQueueVersion);
+    return this.queueService.undoLastAction(
+      user.id,
+      body.expectedQueueVersion,
+      body.channelSlug
+    );
   }
 }

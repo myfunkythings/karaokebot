@@ -16,6 +16,10 @@ export class CreateManualSongRequestDto {
   @IsOptional()
   @IsString()
   title?: string;
+
+  @IsOptional()
+  @IsString()
+  channelSlug?: string;
 }
 
 export class UpdateSongRequestRawTextDto {

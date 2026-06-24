@@ -2,7 +2,13 @@ import { FormEvent, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../shared/api/client";
 
-export function ManualRequestForm({ canManage }: { canManage: boolean }) {
+export function ManualRequestForm({
+  canManage,
+  channelSlug
+}: {
+  canManage: boolean;
+  channelSlug: string;
+}) {
   const queryClient = useQueryClient();
   const [displayName, setDisplayName] = useState("");
   const [rawText, setRawText] = useState("");
@@ -23,7 +29,8 @@ export function ManualRequestForm({ canManage }: { canManage: boolean }) {
     event.preventDefault();
     mutation.mutate({
       displayName,
-      rawText
+      rawText,
+      channelSlug
     });
   }
 

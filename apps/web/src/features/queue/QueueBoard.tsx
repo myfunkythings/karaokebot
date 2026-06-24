@@ -26,7 +26,8 @@ export function QueueBoard({
   };
 
   const nextMutation = useMutation({
-    mutationFn: api.nextPerformer,
+    mutationFn: (expectedQueueVersion: number) =>
+      api.nextPerformer(expectedQueueVersion, snapshot.activeChannelSlug),
     onSuccess: refreshEverything
   });
   const callRequestMutation = useMutation({
@@ -35,7 +36,8 @@ export function QueueBoard({
     onSuccess: refreshEverything
   });
   const rebalanceMutation = useMutation({
-    mutationFn: api.rebalanceQueue,
+    mutationFn: (expectedQueueVersion: number) =>
+      api.rebalanceQueue(expectedQueueVersion, snapshot.activeChannelSlug),
     onSuccess: refreshEverything
   });
   const deferMutation = useMutation({
@@ -45,7 +47,7 @@ export function QueueBoard({
   });
   const cancelGuestMutation = useMutation({
     mutationFn: ({ guestId, expectedQueueVersion }: { guestId: string; expectedQueueVersion: number }) =>
-      api.cancelGuestFuture(guestId, expectedQueueVersion),
+      api.cancelGuestFuture(guestId, expectedQueueVersion, snapshot.activeChannelSlug),
     onSuccess: refreshEverything
   });
   const moveMutation = useMutation({
@@ -54,7 +56,8 @@ export function QueueBoard({
     onSuccess: refreshEverything
   });
   const undoMutation = useMutation({
-    mutationFn: api.undoLastAction,
+    mutationFn: (expectedQueueVersion: number) =>
+      api.undoLastAction(expectedQueueVersion, snapshot.activeChannelSlug),
     onSuccess: refreshEverything
   });
   const closeSessionMutation = useMutation({

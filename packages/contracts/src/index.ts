@@ -75,9 +75,17 @@ export type GuestProfileDto = {
   telegramUserId: string | null;
 };
 
+export type RequestChannelDto = {
+  id: string;
+  slug: string;
+  name: string;
+  color: string | null;
+};
+
 export type SongRequestDto = {
   id: string;
   sessionId: string;
+  channel: RequestChannelDto;
   guest: GuestProfileDto;
   rawText: string;
   artist: string | null;
@@ -99,6 +107,8 @@ export type SongRequestDto = {
 export type QueueSnapshotDto = {
   session: SessionSummary | null;
   queueVersion: number | null;
+  channels: RequestChannelDto[];
+  activeChannelSlug: string;
   current: SongRequestDto | null;
   queued: SongRequestDto[];
   archive: SongRequestDto[];

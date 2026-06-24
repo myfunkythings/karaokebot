@@ -45,7 +45,10 @@ export const api = {
     apiFetch<{ ok: boolean }>("/auth/logout", {
       method: "POST"
     }),
-  getQueueSnapshot: () => apiFetch<QueueSnapshotDto>("/queue/snapshot"),
+  getQueueSnapshot: (channelSlug?: string) =>
+    apiFetch<QueueSnapshotDto>(
+      `/queue/snapshot${channelSlug ? `?channel=${encodeURIComponent(channelSlug)}` : ""}`
+    ),
   getStats: () => apiFetch<SessionStatsDto | null>("/stats/active-session"),
   getSettings: () => apiFetch<GlobalSettings>("/settings/global"),
   updateSettings: (payload: Partial<GlobalSettings>) =>
@@ -63,20 +66,20 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ expectedQueueVersion })
     }),
-  nextPerformer: (expectedQueueVersion: number) =>
+  nextPerformer: (expectedQueueVersion: number, channelSlug?: string) =>
     apiFetch("/queue/next", {
       method: "POST",
-      body: JSON.stringify({ expectedQueueVersion })
+      body: JSON.stringify({ expectedQueueVersion, channelSlug })
     }),
   callRequest: (requestId: string, expectedQueueVersion: number) =>
     apiFetch(`/queue/${requestId}/call`, {
       method: "POST",
       body: JSON.stringify({ expectedQueueVersion })
     }),
-  rebalanceQueue: (expectedQueueVersion: number) =>
+  rebalanceQueue: (expectedQueueVersion: number, channelSlug?: string) =>
     apiFetch("/queue/rebalance", {
       method: "POST",
-      body: JSON.stringify({ expectedQueueVersion })
+      body: JSON.stringify({ expectedQueueVersion, channelSlug })
     }),
   moveRequest: (requestId: string, position: number, expectedQueueVersion: number) =>
     apiFetch(`/queue/${requestId}/move`, {
@@ -88,21 +91,22 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ expectedQueueVersion })
     }),
-  cancelGuestFuture: (guestId: string, expectedQueueVersion: number) =>
+  cancelGuestFuture: (guestId: string, expectedQueueVersion: number, channelSlug?: string) =>
     apiFetch(`/queue/guest/${guestId}/cancel-future`, {
       method: "POST",
-      body: JSON.stringify({ expectedQueueVersion })
+      body: JSON.stringify({ expectedQueueVersion, channelSlug })
     }),
-  undoLastAction: (expectedQueueVersion: number) =>
+  undoLastAction: (expectedQueueVersion: number, channelSlug?: string) =>
     apiFetch("/queue/undo", {
       method: "POST",
-      body: JSON.stringify({ expectedQueueVersion })
+      body: JSON.stringify({ expectedQueueVersion, channelSlug })
     }),
   createManualRequest: (payload: {
     displayName: string;
     rawText: string;
     artist?: string;
     title?: string;
+    channelSlug?: string;
   }) =>
     apiFetch("/song-requests/manual", {
       method: "POST",

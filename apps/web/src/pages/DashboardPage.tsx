@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Navigate, useParams } from "react-router-dom";
 import { api } from "../shared/api/client";
 import { AppLayout } from "../app/AppLayout";
 import { HostPanelPage } from "../features/queue/HostPanelPage";
@@ -7,28 +8,25 @@ import { ManualRequestForm } from "../features/queue/ManualRequestForm";
 import { QueueSideTools } from "../features/queue/QueueSideTools";
 import { MiniSessionStatus } from "../features/session-control/MiniSessionStatus";
 import { CloseShiftSection } from "../features/session-control/CloseShiftSection";
-import { mockQueueSnapshot, mockStats, mockUser } from "../shared/mock/hostPanelMock";
+import { mockQueueSnapshot, mockUser } from "../shared/mock/hostPanelMock";
 
 const loginPath = `${import.meta.env.BASE_URL}login`;
 
 export function DashboardPage() {
   const queryClient = useQueryClient();
   const [queueSearchValue, setQueueSearchValue] = useState("");
+  const { channelSlug } = useParams();
+  const activeChannelSlug = channelSlug?.trim();
   const meQuery = useQuery({
     queryKey: ["auth", "me"],
     queryFn: api.me
   });
   const snapshotQuery = useQuery({
-    queryKey: ["queue", "snapshot"],
-    queryFn: api.getQueueSnapshot,
+    queryKey: ["queue", "snapshot", activeChannelSlug],
+    queryFn: () => api.getQueueSnapshot(activeChannelSlug),
+    enabled: Boolean(activeChannelSlug),
     refetchInterval: 5_000
   });
-  const statsQuery = useQuery({
-    queryKey: ["stats", "active"],
-    queryFn: api.getStats,
-    refetchInterval: 10_000
-  });
-
   const logoutMutation = useMutation({
     mutationFn: api.logout,
     onSuccess: async () => {
@@ -53,7 +51,13 @@ export function DashboardPage() {
     ((meQuery.isError && snapshotQuery.isError) || (!user && !snapshot && !isLoading));
   const resolvedUser = devOfflineMode ? mockUser : user;
   const resolvedSnapshot = devOfflineMode ? mockQueueSnapshot : snapshot;
-  const resolvedStats = devOfflineMode ? mockStats : (statsQuery.data ?? null);
+  const resolvedChannelSlug = devOfflineMode
+    ? mockQueueSnapshot.activeChannelSlug
+    : activeChannelSlug;
+
+  if (!activeChannelSlug && !devOfflineMode) {
+    return <Navigate to="/bot/main" replace />;
+  }
 
   if (isLoading) {
     return <main className="page-shell">Собираем оперативный пульт…</main>;
@@ -66,7 +70,11 @@ export function DashboardPage() {
   const canManage = resolvedUser.role === "owner" || resolvedUser.role === "host";
   const expectedQueueVersion = resolvedSnapshot.queueVersion ?? 0;
   return (
-    <AppLayout user={resolvedUser} onLogout={() => (devOfflineMode ? undefined : logoutMutation.mutate())}>
+    <AppLayout
+      user={resolvedUser}
+      queuePath={`/bot/${resolvedChannelSlug ?? "main"}`}
+      onLogout={() => (devOfflineMode ? undefined : logoutMutation.mutate())}
+    >
       <div className="dashboard-grid dashboard-grid--host">
         <div className="dashboard-column dashboard-column--main">
           <HostPanelPage
@@ -81,11 +89,10 @@ export function DashboardPage() {
             onSearchChange={setQueueSearchValue}
             onClearSearch={() => setQueueSearchValue("")}
           />
-          <ManualRequestForm canManage={canManage} />
+          <ManualRequestForm canManage={canManage} channelSlug={resolvedSnapshot.activeChannelSlug} />
           <MiniSessionStatus
             activeSession={resolvedSnapshot.session}
             snapshot={resolvedSnapshot}
-            stats={resolvedStats}
             canManage={canManage}
           />
           <CloseShiftSection
