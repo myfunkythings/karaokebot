@@ -163,7 +163,58 @@ export function HostPanelPage({
 
   return (
     <div className="host-panel-page">
-      <section className="operational-toolbar">
+      <section
+        className={
+          snapshot.channels.length > 1
+            ? "host-console-bar"
+            : "host-console-bar host-console-bar--single-channel"
+        }
+      >
+        {snapshot.channels.length > 1 ? (
+          <div className="channel-switcher" aria-label="Канал заявок">
+            {snapshot.channels.map((channel) => (
+              <button
+                key={channel.id}
+                type="button"
+                className={
+                  channel.slug === selectedChannelSlug
+                    ? "channel-switcher__button channel-switcher__button--active"
+                    : "channel-switcher__button"
+                }
+                onClick={() => onChannelChange(channel.slug)}
+              >
+                <span
+                  className="channel-switcher__dot"
+                  style={{ background: channel.color ?? "#58707b" }}
+                  aria-hidden="true"
+                />
+                {channel.name}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="queue-panel__controls">
+          <label className="queue-search">
+            <input
+              value={searchValue}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder="Гость, песня или @telegram"
+              aria-label="Поиск по очереди"
+            />
+          </label>
+          <span className="queue-count-chip">
+            {queueSearch
+              ? `${filteredRequests.length} из ${snapshot.queued.length}`
+              : `${snapshot.queued.length} заявок`}
+          </span>
+          {queueSearch ? (
+            <button className="ghost-button ghost-button--compact" onClick={onClearSearch} type="button">
+              Сбросить
+            </button>
+          ) : null}
+        </div>
+
         <div className="operational-toolbar__actions">
           <button
             className="secondary-button secondary-button--toolbar"
@@ -185,54 +236,7 @@ export function HostPanelPage({
         </div>
       </section>
 
-      {snapshot.channels.length > 1 ? (
-        <section className="channel-switcher" aria-label="Канал заявок">
-          {snapshot.channels.map((channel) => (
-            <button
-              key={channel.id}
-              type="button"
-              className={
-                channel.slug === selectedChannelSlug
-                  ? "channel-switcher__button channel-switcher__button--active"
-                  : "channel-switcher__button"
-              }
-              onClick={() => onChannelChange(channel.slug)}
-            >
-              <span
-                className="channel-switcher__dot"
-                style={{ background: channel.color ?? "#58707b" }}
-                aria-hidden="true"
-              />
-              {channel.name}
-            </button>
-          ))}
-        </section>
-      ) : null}
-
       <section className="queue-panel">
-        <div className="queue-panel__info-bar">
-          <div className="queue-panel__controls">
-            <label className="queue-search">
-              <input
-                value={searchValue}
-                onChange={(event) => onSearchChange(event.target.value)}
-                placeholder="Гость, песня или @telegram"
-                aria-label="Поиск по очереди"
-              />
-            </label>
-            <span className="queue-count-chip">
-              {queueSearch
-                ? `${filteredRequests.length} из ${snapshot.queued.length}`
-                : `${snapshot.queued.length} заявок`}
-            </span>
-            {queueSearch ? (
-              <button className="ghost-button ghost-button--compact" onClick={onClearSearch} type="button">
-                Сбросить
-              </button>
-            ) : null}
-          </div>
-        </div>
-
         <QueueTable
           currentRequest={snapshot.current}
           requests={filteredRequests}

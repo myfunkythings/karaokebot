@@ -10,9 +10,13 @@ import { SongRequestsService } from "../song-requests/song-requests.service.js";
 import { SettingsService } from "../settings/settings.service.js";
 import { RequestChannelsService } from "../request-channels/request-channels.service.js";
 import {
-  isTelegramCancelIntent,
+  isTelegramCancelAbortIntent,
+  isTelegramCancelConfirmIntent,
+  isTelegramCancelRequestIntent,
   isTelegramStatusIntent,
+  TELEGRAM_ABORT_CANCEL_BUTTON_TEXT,
   TELEGRAM_CANCEL_BUTTON_TEXT,
+  TELEGRAM_CONFIRM_CANCEL_BUTTON_TEXT,
   TELEGRAM_STATUS_BUTTON_TEXT
 } from "./telegram-status-intent.js";
 import { resolveTelegramWebhookUrl } from "./telegram-webhook.js";
@@ -33,6 +37,8 @@ type TelegramUpdate = {
   update_id?: number;
   message?: TelegramMessage;
 };
+
+type TelegramKeyboardRow = Array<{ text: string }>;
 
 @Injectable()
 export class TelegramService implements OnApplicationBootstrap {
@@ -106,18 +112,25 @@ export class TelegramService implements OnApplicationBootstrap {
     try {
       const settings = await this.settingsService.getGlobalSettings();
       let replyText = "";
+      let keyboardRows = this.getDefaultKeyboardRows();
       let guestProfileId: string | null = null;
       let linkedSongRequestId: string | null = null;
 
       if (isTelegramStatusIntent(text)) {
         replyText =
           await this.songRequestsService.getTelegramGuestStatusSummary(telegramUserId, channel.slug);
-      } else if (isTelegramCancelIntent(text)) {
+      } else if (isTelegramCancelRequestIntent(text)) {
+        replyText =
+          "Точно удалить все твои заявки из очереди? Это действие нельзя отменить из Telegram.\n\nЕсли нажал случайно, выбери «Не удалять».";
+        keyboardRows = this.getCancelConfirmationKeyboardRows();
+      } else if (isTelegramCancelConfirmIntent(text)) {
         replyText =
           await this.songRequestsService.cancelTelegramGuestQueuedRequests(
             telegramUserId,
             channel.slug
           );
+      } else if (isTelegramCancelAbortIntent(text)) {
+        replyText = "Ок, заявки оставил в очереди.";
       } else if (text.startsWith("/")) {
         if (text === "/start") {
           replyText = settings.botReplyTemplates.startMessage;
@@ -142,7 +155,7 @@ export class TelegramService implements OnApplicationBootstrap {
         linkedSongRequestId = result.status === "accepted" ? result.requestId : null;
       }
 
-      await this.sendMessage(channel.slug, telegramChatId, replyText);
+      await this.sendMessage(channel.slug, telegramChatId, replyText, keyboardRows);
 
       await this.prisma.telegramUpdate.update({
         where: { id: telegramUpdate.id },
@@ -198,7 +211,12 @@ export class TelegramService implements OnApplicationBootstrap {
     };
   }
 
-  private async sendMessage(channelSlug: string, chatId: string, text: string) {
+  private async sendMessage(
+    channelSlug: string,
+    chatId: string,
+    text: string,
+    keyboardRows = this.getDefaultKeyboardRows()
+  ) {
     const token = this.getBotToken(channelSlug);
     if (!token || token === "replace-me") {
       this.logger.warn(
@@ -216,10 +234,7 @@ export class TelegramService implements OnApplicationBootstrap {
         chat_id: chatId,
         text,
         reply_markup: {
-          keyboard: [
-            [{ text: TELEGRAM_STATUS_BUTTON_TEXT }],
-            [{ text: TELEGRAM_CANCEL_BUTTON_TEXT }]
-          ],
+          keyboard: keyboardRows,
           resize_keyboard: true,
           one_time_keyboard: false
         }
@@ -347,5 +362,19 @@ export class TelegramService implements OnApplicationBootstrap {
 
   private toEnvSlug(channelSlug: string) {
     return channelSlug.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
+  }
+
+  private getDefaultKeyboardRows(): TelegramKeyboardRow[] {
+    return [
+      [{ text: TELEGRAM_STATUS_BUTTON_TEXT }],
+      [{ text: TELEGRAM_CANCEL_BUTTON_TEXT }]
+    ];
+  }
+
+  private getCancelConfirmationKeyboardRows(): TelegramKeyboardRow[] {
+    return [
+      [{ text: TELEGRAM_CONFIRM_CANCEL_BUTTON_TEXT }],
+      [{ text: TELEGRAM_ABORT_CANCEL_BUTTON_TEXT }]
+    ];
   }
 }

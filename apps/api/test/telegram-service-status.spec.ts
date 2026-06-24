@@ -105,11 +105,35 @@ describe("TelegramService status text handling", () => {
     );
   });
 
-  it("cancels queued guest requests through the channel flow", async () => {
-    const { service, songRequestsService } = createService();
+  it("asks for confirmation before cancelling queued guest requests", async () => {
+    const { fetchMock, service, songRequestsService } = createService();
 
     await service.handleWebhook(
       makeUpdate("Удалить все мои заявки из очереди"),
+      "secondary-secret",
+      "secondary"
+    );
+
+    expect(songRequestsService.cancelTelegramGuestQueuedRequests).not.toHaveBeenCalled();
+    expect(songRequestsService.createTelegramRequest).not.toHaveBeenCalled();
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual(
+      expect.objectContaining({
+        text: expect.stringContaining("Точно удалить"),
+        reply_markup: expect.objectContaining({
+          keyboard: [
+            [{ text: "Да, удалить мои заявки" }],
+            [{ text: "Не удалять" }]
+          ]
+        })
+      })
+    );
+  });
+
+  it("cancels queued guest requests only after confirmation", async () => {
+    const { service, songRequestsService } = createService();
+
+    await service.handleWebhook(
+      makeUpdate("Да, удалить мои заявки"),
       "secondary-secret",
       "secondary"
     );
@@ -118,6 +142,15 @@ describe("TelegramService status text handling", () => {
       "400",
       "secondary"
     );
+    expect(songRequestsService.createTelegramRequest).not.toHaveBeenCalled();
+  });
+
+  it("keeps queued guest requests when cancellation is aborted", async () => {
+    const { service, songRequestsService } = createService();
+
+    await service.handleWebhook(makeUpdate("Не удалять"), "secondary-secret", "secondary");
+
+    expect(songRequestsService.cancelTelegramGuestQueuedRequests).not.toHaveBeenCalled();
     expect(songRequestsService.createTelegramRequest).not.toHaveBeenCalled();
   });
 

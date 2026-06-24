@@ -3969,3 +3969,235 @@ body {
     width: 100%;
   }
 }
+
+/* Desktop operator console tightening */
+
+@media (max-width: 1180px) {
+  .host-console-bar {
+    display: contents;
+  }
+}
+
+@media (min-width: 1181px) {
+  .host-console-bar {
+    display: grid;
+    grid-template-columns: minmax(230px, auto) minmax(320px, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 8px;
+    border: 1px solid var(--line-soft);
+    border-radius: 14px;
+    background: var(--bg-surface);
+  }
+
+  .host-console-bar--single-channel {
+    grid-template-columns: minmax(360px, 1fr) auto;
+  }
+
+  .host-console-bar .channel-switcher {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .host-console-bar .queue-panel__controls {
+    grid-template-columns: minmax(260px, 1fr) auto auto;
+    justify-content: stretch;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .host-console-bar .queue-search input {
+    min-height: 38px;
+    padding: 8px 12px;
+  }
+
+  .host-console-bar .operational-toolbar__actions {
+    grid-template-columns: auto auto;
+    gap: 8px;
+  }
+
+  .host-console-bar .primary-button--toolbar,
+  .host-console-bar .secondary-button--toolbar {
+    min-height: 38px;
+    border-radius: 11px;
+  }
+
+  .host-console-bar .primary-button--toolbar {
+    padding: 0 18px;
+    font-size: 15px;
+    line-height: 20px;
+  }
+
+  .host-console-bar .secondary-button--toolbar {
+    min-width: 112px;
+    padding: 0 14px;
+    font-size: 13px;
+  }
+
+  .dashboard-grid--host {
+    grid-template-columns: minmax(0, 1fr) 286px;
+    gap: 12px;
+  }
+
+  .dashboard-column,
+  .host-panel-page,
+  .right-sidebar {
+    gap: 10px;
+  }
+
+  .right-sidebar {
+    gap: 10px;
+  }
+
+  .sidebar-card {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .manual-request-form,
+  .guest-search-card,
+  .mini-status-form,
+  .close-shift-section {
+    gap: 9px;
+  }
+
+  .field {
+    gap: 6px;
+  }
+
+  .field input,
+  .field textarea {
+    min-height: 38px;
+    padding: 8px 11px;
+    border-radius: 11px;
+  }
+
+  .field textarea,
+  .manual-request-form textarea {
+    min-height: 74px;
+  }
+
+  .queue-panel {
+    padding: 8px;
+    border-radius: 14px;
+  }
+
+  .queue-table th {
+    height: 34px;
+    padding: 8px 10px;
+  }
+
+  .queue-table td {
+    height: 64px;
+    padding: 5px 10px;
+  }
+
+  .queue-table__col-index {
+    width: 58px;
+  }
+
+  .queue-table__col-request {
+    width: 55%;
+    min-width: 460px;
+  }
+
+  .queue-table__col-guest {
+    width: 18%;
+  }
+
+  .queue-table__col-actions {
+    width: 90px;
+  }
+
+  .queue-table__request-cell {
+    max-width: 0;
+  }
+
+  .inline-request-text,
+  .inline-request-text__copy-button,
+  .inline-request-text__value {
+    min-width: 0;
+  }
+
+  .inline-request-text__view,
+  .inline-request-text__editor {
+    grid-template-columns: minmax(0, 1fr) 28px;
+    gap: 6px;
+  }
+
+  .inline-request-text__copy-button {
+    min-height: 23px;
+    padding: 0;
+    border-radius: 8px;
+  }
+
+  .inline-request-text__value {
+    display: block;
+    overflow: hidden;
+    max-width: 100%;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 22px;
+    line-height: 23px;
+    font-weight: 800;
+    letter-spacing: 0;
+  }
+
+  .queue-table__request-meta {
+    margin-top: 1px;
+    font-size: 10px;
+    line-height: 11px;
+  }
+
+  .request-channel-badge {
+    margin-top: 2px;
+    min-height: 16px;
+    padding: 0 7px;
+    font-size: 10px;
+    line-height: 12px;
+  }
+
+  .queue-guest-cell {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
+  }
+
+  .queue-guest-cell strong {
+    font-size: 22px;
+    line-height: 23px;
+  }
+
+  .queue-guest-cell span {
+    font-size: 18px;
+    line-height: 20px;
+  }
+
+  .queue-sung-cell,
+  .queue-wait-cell {
+    font-size: 20px;
+    line-height: 22px;
+    font-weight: 800;
+  }
+
+  .queue-table__drag-handle,
+  .queue-table__drag-handle-placeholder,
+  .row-actions-menu__trigger,
+  .inline-request-text__icon-button {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+  }
+
+  .queue-table__drag-handle,
+  .queue-table__drag-handle-placeholder {
+    flex-basis: 28px;
+  }
+
+  .mini-status__line {
+    padding: 6px 0;
+  }
+}
