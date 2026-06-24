@@ -4,7 +4,6 @@ import { api } from "../shared/api/client";
 import { AppLayout } from "../app/AppLayout";
 import { HostPanelPage } from "../features/queue/HostPanelPage";
 import { ManualRequestForm } from "../features/queue/ManualRequestForm";
-import { QueueSideTools } from "../features/queue/QueueSideTools";
 import { MiniSessionStatus } from "../features/session-control/MiniSessionStatus";
 import { CloseShiftSection } from "../features/session-control/CloseShiftSection";
 import { mockQueueSnapshot, mockUser } from "../shared/mock/hostPanelMock";
@@ -22,7 +21,8 @@ export function DashboardPage() {
   const snapshotQuery = useQuery({
     queryKey: ["queue", "snapshot", selectedChannelSlug],
     queryFn: () => api.getQueueSnapshot(selectedChannelSlug),
-    refetchInterval: 5_000
+    refetchInterval: 5_000,
+    retry: import.meta.env.DEV ? false : 3
   });
   const logoutMutation = useMutation({
     mutationFn: api.logout,
@@ -66,16 +66,13 @@ export function DashboardPage() {
             snapshot={resolvedSnapshot}
             canManage={canManage}
             searchValue={queueSearchValue}
+            onSearchChange={setQueueSearchValue}
+            onClearSearch={() => setQueueSearchValue("")}
             selectedChannelSlug={selectedChannelSlug}
             onChannelChange={setSelectedChannelSlug}
           />
         </div>
         <aside className="dashboard-column dashboard-column--side right-sidebar">
-          <QueueSideTools
-            searchValue={queueSearchValue}
-            onSearchChange={setQueueSearchValue}
-            onClearSearch={() => setQueueSearchValue("")}
-          />
           <ManualRequestForm canManage={canManage} channelSlug={selectedChannelSlug} />
           <MiniSessionStatus
             activeSession={resolvedSnapshot.session}

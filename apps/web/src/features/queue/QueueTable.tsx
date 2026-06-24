@@ -1,4 +1,4 @@
-import { useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useMemo, useState, type Dispatch, type PointerEvent, type ReactNode, type SetStateAction } from "react";
 import {
   closestCenter,
   DndContext,
@@ -23,7 +23,7 @@ import {
 } from "./InlineEditableRequestText";
 import { RowActionsMenu } from "./RowActionsMenu";
 
-type QueueRowStatus = "current" | "queued";
+type QueueRowStatus = "current" | "next" | "queued";
 
 type QueueRowData = {
   request: SongRequestDto;
@@ -74,13 +74,24 @@ function getCreatedAtLabel(timestamp: string) {
 
 function getVisualStatus(
   request: SongRequestDto,
-  _queueIndex: number | null,
+  queueIndex: number | null,
   currentRequestId: string | null
 ): QueueRowStatus {
   if (request.id === currentRequestId) {
     return "current";
   }
+  if (queueIndex === 0) {
+    return "next";
+  }
   return "queued";
+}
+
+function getRowMeta(row: QueueRowData) {
+  return `Подана ${getCreatedAtLabel(row.request.requestedAt)}`;
+}
+
+function isInteractiveTarget(target: EventTarget | null) {
+  return target instanceof Element && Boolean(target.closest("button, input, textarea, select, a, [contenteditable='true']"));
 }
 
 async function copyRequest(rawText: string, onCopied: (message: string) => void) {
@@ -100,6 +111,10 @@ function getRowClassName(row: QueueRowData, isDragging = false) {
 
   if (row.status === "current") {
     classNames.push("queue-table__row--current");
+  }
+
+  if (row.status === "next") {
+    classNames.push("queue-table__row--next");
   }
 
   if (isDragging) {
@@ -130,13 +145,13 @@ function QueueTableRowCells({
 
   return (
     <>
-      <td className="queue-table__position">
+      <td className="queue-table__position" data-label="Позиция">
         <div className="queue-table__position-inner">
           {dragHandle}
           <span>{row.rowNumber}</span>
         </div>
       </td>
-      <td className="queue-table__request-cell">
+      <td className="queue-table__request-cell" data-label="Заявка">
         <InlineEditableRequestText
           value={row.request.rawText}
           isEditing={editingRequestId === row.request.id}
@@ -150,7 +165,7 @@ function QueueTableRowCells({
             onCopied("Заявка обновлена");
           }}
         />
-        <span className="queue-table__request-meta">Поступила в {getCreatedAtLabel(row.request.requestedAt)}</span>
+        <span className="queue-table__request-meta">{getRowMeta(row)}</span>
         <span className="request-channel-badge">
           <span
             className="request-channel-badge__dot"
@@ -160,15 +175,15 @@ function QueueTableRowCells({
           {row.request.channel.name}
         </span>
       </td>
-      <td>
+      <td data-label="Гость">
         <div className="queue-guest-cell">
           <strong>{row.request.guest.displayName}</strong>
           <span>{row.request.guest.telegramUsername ? `@${row.request.guest.telegramUsername}` : "Добавлен вручную"}</span>
         </div>
       </td>
-      <td className="queue-sung-cell">{row.sungCount}</td>
-      <td className="queue-wait-cell">{getWaitLabel(row.request.requestedAt)}</td>
-      <td className="queue-table__actions-cell">
+      <td className="queue-sung-cell" data-label="Спето">{row.sungCount}</td>
+      <td className="queue-wait-cell" data-label="Ждёт">{getWaitLabel(row.request.requestedAt)}</td>
+      <td className="queue-table__actions-cell" data-label="Действия">
         <div className="queue-row-actions">
           <RowActionsMenu
             request={row.request}
@@ -205,11 +220,26 @@ function SortableQueueTableRow({ row, ...actions }: QueueRowActions & { row: Que
     useSortable({
       id: row.request.id
     });
+  function handleTabletEdgePointerDown(event: PointerEvent<HTMLTableRowElement>) {
+    if (!window.matchMedia("(max-width: 1180px)").matches || isInteractiveTarget(event.target)) {
+      return;
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const pointerX = event.clientX - rect.left;
+    const edgeSize = Math.min(56, rect.width * 0.22);
+
+    if (pointerX <= edgeSize || rect.width - pointerX <= edgeSize) {
+      const startDragging = listeners?.onPointerDown as ((event: PointerEvent<HTMLTableRowElement>) => void) | undefined;
+      startDragging?.(event);
+    }
+  }
 
   return (
     <tr
       ref={setNodeRef}
       className={getRowClassName(row, isDragging)}
+      onPointerDown={handleTabletEdgePointerDown}
       style={{
         transform: CSS.Transform.toString(transform),
         transition
@@ -339,7 +369,7 @@ export function QueueTable({
                 <th className="queue-table__col-index">#</th>
                 <th className="queue-table__col-request">Заявка</th>
                 <th className="queue-table__col-guest">Гость</th>
-                <th className="queue-table__col-sung">Спел</th>
+                <th className="queue-table__col-sung">Спето</th>
                 <th className="queue-table__col-wait">Ожидание</th>
                 <th className="queue-table__col-actions" aria-label="Дополнительные действия" />
               </tr>

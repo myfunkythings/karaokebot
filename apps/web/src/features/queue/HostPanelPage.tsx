@@ -10,12 +10,16 @@ export function HostPanelPage({
   snapshot,
   canManage,
   searchValue,
+  onSearchChange,
+  onClearSearch,
   selectedChannelSlug,
   onChannelChange
 }: {
   snapshot: QueueSnapshotDto;
   canManage: boolean;
   searchValue: string;
+  onSearchChange: (value: string) => void;
+  onClearSearch: () => void;
   selectedChannelSlug: string;
   onChannelChange: (channelSlug: string) => void;
 }) {
@@ -160,25 +164,15 @@ export function HostPanelPage({
   return (
     <div className="host-panel-page">
       <section className="operational-toolbar">
-        <div className="operational-toolbar__summary" aria-label="Статус смены">
-          <span className={snapshot.session ? "operational-pill operational-pill--live" : "operational-pill"}>
-            {snapshot.session ? "Смена идёт" : "Смена не открыта"}
-          </span>
-          <div className="operational-toolbar__facts">
-            <div className="operational-toolbar__fact">
-              <span>В очереди</span>
-              <strong>{snapshot.queued.length}</strong>
-            </div>
-            <div className="operational-toolbar__fact">
-              <span>Канал</span>
-              <strong>
-                {snapshot.channels.find((channel) => channel.slug === selectedChannelSlug)?.name ?? "Основной"}
-              </strong>
-            </div>
-          </div>
-        </div>
-
         <div className="operational-toolbar__actions">
+          <button
+            className="secondary-button secondary-button--toolbar"
+            onClick={() => undoMutation.mutate()}
+            disabled={!canManage || undoMutation.isPending}
+            type="button"
+          >
+            {undoMutation.isPending ? "Отменяем..." : "Отменить"}
+          </button>
           <button
             className="primary-button primary-button--toolbar"
             onClick={handleCallNext}
@@ -187,14 +181,6 @@ export function HostPanelPage({
             title="Горячая клавиша: N"
           >
             {nextMutation.isPending ? "Вызываем..." : "Следующая песня"}
-          </button>
-          <button
-            className="secondary-button secondary-button--toolbar"
-            onClick={() => undoMutation.mutate()}
-            disabled={!canManage || undoMutation.isPending}
-            type="button"
-          >
-            {undoMutation.isPending ? "Отменяем..." : "Отменить последнее действие"}
           </button>
         </div>
       </section>
@@ -224,6 +210,29 @@ export function HostPanelPage({
       ) : null}
 
       <section className="queue-panel">
+        <div className="queue-panel__info-bar">
+          <div className="queue-panel__controls">
+            <label className="queue-search">
+              <input
+                value={searchValue}
+                onChange={(event) => onSearchChange(event.target.value)}
+                placeholder="Гость, песня или @telegram"
+                aria-label="Поиск по очереди"
+              />
+            </label>
+            <span className="queue-count-chip">
+              {queueSearch
+                ? `${filteredRequests.length} из ${snapshot.queued.length}`
+                : `${snapshot.queued.length} заявок`}
+            </span>
+            {queueSearch ? (
+              <button className="ghost-button ghost-button--compact" onClick={onClearSearch} type="button">
+                Сбросить
+              </button>
+            ) : null}
+          </div>
+        </div>
+
         <QueueTable
           currentRequest={snapshot.current}
           requests={filteredRequests}
