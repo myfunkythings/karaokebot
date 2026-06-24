@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
-import { SongRequestStatus } from "@prisma/client";
+import { OrderMode, SongRequestOutcome, SongRequestStatus } from "@prisma/client";
 import { PrismaService } from "../../common/db/prisma.service.js";
 import { parseSongRequest } from "../../common/utils/parse-song-request.js";
 import { toSongRequestDto } from "../../common/utils/song-request.mapper.js";
@@ -257,29 +257,122 @@ export class SongRequestsService {
     });
 
     if (current) {
-      return settings.botReplyTemplates.statusCurrentPerformer;
+      const queuedRequestsForCurrentGuest = await this.getQueuedRequestsForGuest(
+        session.id,
+        channel.id,
+        guest.id
+      );
+
+      if (!queuedRequestsForCurrentGuest.length) {
+        return settings.botReplyTemplates.statusCurrentPerformer;
+      }
+
+      return [
+        settings.botReplyTemplates.statusCurrentPerformer,
+        "",
+        this.formatQueuedRequestsList(queuedRequestsForCurrentGuest, true)
+      ].join("\n");
     }
 
-    const nextRequest = await this.prisma.songRequest.findFirst({
+    const activeCurrent = await this.prisma.songRequest.findFirst({
       where: {
         sessionId: session.id,
-        guestProfileId: guest.id,
+        channelId: channel.id,
+        status: SongRequestStatus.current
+      }
+    });
+
+    const queuedRequests = await this.prisma.songRequest.findMany({
+      where: {
+        sessionId: session.id,
         channelId: channel.id,
         status: SongRequestStatus.queued
       },
-      orderBy: { queueRank: "asc" }
+      orderBy: [{ queueRank: "asc" }, { requestedAt: "asc" }]
     });
 
-    if (!nextRequest) {
+    const guestQueuedRequests = queuedRequests.filter(
+      (request) => request.guestProfileId === guest.id
+    );
+
+    if (!guestQueuedRequests.length) {
       return settings.botReplyTemplates.statusNoActiveRequests;
     }
 
-    const position = nextRequest.queueRank ?? 0;
-    const title = nextRequest.title ?? nextRequest.rawText;
+    return this.formatQueuedRequestsList(guestQueuedRequests, Boolean(activeCurrent));
+  }
 
-    return this.renderTemplate(settings.botReplyTemplates.statusQueuedSummary, {
-      title,
-      position: String(position)
+  async cancelTelegramGuestQueuedRequests(
+    telegramUserId: string,
+    channelSlug?: string | null
+  ) {
+    const session = await this.sessionsService.getActiveSession();
+    const settings = await this.settingsService.getGlobalSettings();
+    const channel = await this.requestChannelsService.getRequiredChannelBySlug(channelSlug);
+
+    if (!session) {
+      return settings.botReplyTemplates.requestRejectedNoSession;
+    }
+
+    const guest = await this.prisma.guestProfile.findUnique({
+      where: { telegramUserId }
+    });
+    if (!guest) {
+      return settings.botReplyTemplates.statusNoGuestProfile;
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await this.prisma.acquireSessionLock(session.id, tx);
+
+      const queuedRequests = await tx.songRequest.findMany({
+        where: {
+          sessionId: session.id,
+          guestProfileId: guest.id,
+          channelId: channel.id,
+          status: SongRequestStatus.queued
+        },
+        orderBy: [{ queueRank: "asc" }, { requestedAt: "asc" }]
+      });
+
+      if (!queuedRequests.length) {
+        return settings.botReplyTemplates.statusNoActiveRequests;
+      }
+
+      const now = new Date();
+      await tx.songRequest.updateMany({
+        where: {
+          id: {
+            in: queuedRequests.map((request) => request.id)
+          }
+        },
+        data: {
+          status: SongRequestStatus.cancelled,
+          outcome: SongRequestOutcome.cancelled_by_host,
+          cancelledAt: now,
+          queueRank: null,
+          orderMode: OrderMode.auto,
+          manualRank: null
+        }
+      });
+
+      await this.queueService.refreshSessionDerivedState(session.id, tx);
+      await this.auditService.recordAction(
+        {
+          sessionId: session.id,
+          actorType: "telegram",
+          actorGuestId: guest.id,
+          actionType: "telegram_guest_queued_requests_cancelled",
+          payloadJson: {
+            guestId: guest.id,
+            affectedRequestIds: queuedRequests.map((request) => request.id),
+            channelId: channel.id,
+            channelSlug: channel.slug
+          }
+        },
+        tx
+      );
+
+      return this.formatCancelledRequestsMessage(queuedRequests);
     });
   }
 
@@ -295,10 +388,104 @@ export class SongRequestsService {
     return toSongRequestDto(request);
   }
 
-  private renderTemplate(template: string, values: Record<string, string>) {
-    return Object.entries(values).reduce(
-      (result, [key, value]) => result.replaceAll(`{{${key}}}`, value),
-      template
-    );
+  private async getQueuedRequestsForGuest(
+    sessionId: string,
+    channelId: string,
+    guestProfileId: string
+  ) {
+    return this.prisma.songRequest.findMany({
+      where: {
+        sessionId,
+        channelId,
+        guestProfileId,
+        status: SongRequestStatus.queued
+      },
+      orderBy: [{ queueRank: "asc" }, { requestedAt: "asc" }]
+    });
+  }
+
+  private formatQueuedRequestsList(
+    requests: Array<{
+      id: string;
+      queueRank: number | null;
+      title: string | null;
+      rawText: string;
+    }>,
+    hasActiveCurrent = false
+  ) {
+    const lines = requests.map((request, index) => {
+      const position = request.queueRank ?? index + 1;
+      const tracksAhead = Math.max(0, position - 1 + (hasActiveCurrent ? 1 : 0));
+      const title = request.title ?? request.rawText;
+
+      return `${index + 1}. ${title} — позиция в очереди: ${position}; ${this.formatTracksAhead(
+        tracksAhead
+      )}.`;
+    });
+
+    return ["Твои песни в очереди:", ...lines].join("\n");
+  }
+
+  private formatCancelledRequestsMessage(
+    requests: Array<{
+      title: string | null;
+      rawText: string;
+    }>
+  ) {
+    const lines = requests.map((request, index) => {
+      const title = request.title ?? request.rawText;
+      return `${index + 1}. ${title}`;
+    });
+
+    return [
+      `Удалил из очереди ${requests.length} ${this.getRequestPlural(requests.length)}:`,
+      ...lines
+    ].join("\n");
+  }
+
+  private formatTracksAhead(tracksAhead: number) {
+    if (tracksAhead === 0) {
+      return "ты следующий/следующая";
+    }
+
+    return `примерно через ${tracksAhead} ${this.getTrackPlural(tracksAhead)}`;
+  }
+
+  private getTrackPlural(count: number) {
+    const lastTwoDigits = count % 100;
+    const lastDigit = count % 10;
+
+    if (lastTwoDigits >= 11 && lastTwoDigits <= 14) {
+      return "треков";
+    }
+
+    if (lastDigit === 1) {
+      return "трек";
+    }
+
+    if (lastDigit >= 2 && lastDigit <= 4) {
+      return "трека";
+    }
+
+    return "треков";
+  }
+
+  private getRequestPlural(count: number) {
+    const lastTwoDigits = count % 100;
+    const lastDigit = count % 10;
+
+    if (lastTwoDigits >= 11 && lastTwoDigits <= 14) {
+      return "заявок";
+    }
+
+    if (lastDigit === 1) {
+      return "заявку";
+    }
+
+    if (lastDigit >= 2 && lastDigit <= 4) {
+      return "заявки";
+    }
+
+    return "заявок";
   }
 }

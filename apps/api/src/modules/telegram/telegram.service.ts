@@ -9,6 +9,12 @@ import { PrismaService } from "../../common/db/prisma.service.js";
 import { SongRequestsService } from "../song-requests/song-requests.service.js";
 import { SettingsService } from "../settings/settings.service.js";
 import { RequestChannelsService } from "../request-channels/request-channels.service.js";
+import {
+  isTelegramCancelIntent,
+  isTelegramStatusIntent,
+  TELEGRAM_CANCEL_BUTTON_TEXT,
+  TELEGRAM_STATUS_BUTTON_TEXT
+} from "./telegram-status-intent.js";
 import { resolveTelegramWebhookUrl } from "./telegram-webhook.js";
 
 type TelegramMessage = {
@@ -103,12 +109,18 @@ export class TelegramService implements OnApplicationBootstrap {
       let guestProfileId: string | null = null;
       let linkedSongRequestId: string | null = null;
 
-      if (text.startsWith("/")) {
+      if (isTelegramStatusIntent(text)) {
+        replyText =
+          await this.songRequestsService.getTelegramGuestStatusSummary(telegramUserId, channel.slug);
+      } else if (isTelegramCancelIntent(text)) {
+        replyText =
+          await this.songRequestsService.cancelTelegramGuestQueuedRequests(
+            telegramUserId,
+            channel.slug
+          );
+      } else if (text.startsWith("/")) {
         if (text === "/start") {
           replyText = settings.botReplyTemplates.startMessage;
-        } else if (text === "/status") {
-          replyText =
-            await this.songRequestsService.getTelegramGuestStatusSummary(telegramUserId, channel.slug);
         } else {
           replyText = settings.botReplyTemplates.unknownCommand;
         }
@@ -202,7 +214,15 @@ export class TelegramService implements OnApplicationBootstrap {
       },
       body: JSON.stringify({
         chat_id: chatId,
-        text
+        text,
+        reply_markup: {
+          keyboard: [
+            [{ text: TELEGRAM_STATUS_BUTTON_TEXT }],
+            [{ text: TELEGRAM_CANCEL_BUTTON_TEXT }]
+          ],
+          resize_keyboard: true,
+          one_time_keyboard: false
+        }
       })
     });
 

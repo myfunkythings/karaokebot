@@ -1,0 +1,194 @@
+import { describe, expect, it, vi } from "vitest";
+import { SongRequestsService } from "../src/modules/song-requests/song-requests.service.js";
+import { DEFAULT_SETTINGS } from "../src/modules/settings/settings.constants.js";
+
+function createService({
+  activeCurrent = null,
+  queuedRequests = []
+}: {
+  activeCurrent?: unknown;
+  queuedRequests?: Array<{
+    id: string;
+    guestProfileId: string;
+    queueRank: number | null;
+    title: string | null;
+    rawText: string;
+    requestedAt: Date;
+  }>;
+}) {
+  const prisma = {
+    guestProfile: {
+      findUnique: vi.fn().mockResolvedValue({ id: "guest-1", telegramUserId: "400" })
+    },
+    songRequest: {
+      findFirst: vi
+        .fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(activeCurrent),
+      findMany: vi.fn().mockResolvedValue(queuedRequests)
+    }
+  };
+  const sessionsService = {
+    getActiveSession: vi.fn().mockResolvedValue({ id: "session-1" })
+  };
+  const settingsService = {
+    getGlobalSettings: vi.fn().mockResolvedValue(DEFAULT_SETTINGS)
+  };
+  const requestChannelsService = {
+    getRequiredChannelBySlug: vi.fn().mockResolvedValue({
+      id: "channel-secondary",
+      slug: "secondary"
+    })
+  };
+
+  const service = new SongRequestsService(
+    prisma as never,
+    {} as never,
+    sessionsService as never,
+    {} as never,
+    settingsService as never,
+    {} as never,
+    requestChannelsService as never
+  );
+
+  return { prisma, service };
+}
+
+describe("SongRequestsService.getTelegramGuestStatusSummary", () => {
+  it("lists all queued songs for the guest with positions and approximate tracks ahead", async () => {
+    const { service } = createService({
+      activeCurrent: { id: "current-1" },
+      queuedRequests: [
+        {
+          id: "request-ahead-1",
+          guestProfileId: "guest-2",
+          queueRank: 1,
+          title: "Ahead",
+          rawText: "Ahead",
+          requestedAt: new Date("2026-06-25T18:00:00.000Z")
+        },
+        {
+          id: "request-guest",
+          guestProfileId: "guest-1",
+          queueRank: 2,
+          title: "Guest song 1",
+          rawText: "Guest raw",
+          requestedAt: new Date("2026-06-25T18:01:00.000Z")
+        },
+        {
+          id: "request-guest-2",
+          guestProfileId: "guest-1",
+          queueRank: 4,
+          title: "Guest song 2",
+          rawText: "Guest raw 2",
+          requestedAt: new Date("2026-06-25T18:03:00.000Z")
+        }
+      ]
+    });
+
+    const message = await service.getTelegramGuestStatusSummary("400", "secondary");
+
+    expect(message).toContain("1. Guest song 1 — позиция в очереди: 2; примерно через 2 трека.");
+    expect(message).toContain("2. Guest song 2 — позиция в очереди: 4; примерно через 4 трека.");
+  });
+
+  it("explains when the guest is next", async () => {
+    const { service } = createService({
+      queuedRequests: [
+        {
+          id: "request-guest",
+          guestProfileId: "guest-1",
+          queueRank: 1,
+          title: "Guest song",
+          rawText: "Guest raw",
+          requestedAt: new Date("2026-06-25T18:01:00.000Z")
+        }
+      ]
+    });
+
+    await expect(service.getTelegramGuestStatusSummary("400", "secondary")).resolves.toContain(
+      "ты следующий/следующая"
+    );
+  });
+});
+
+describe("SongRequestsService.cancelTelegramGuestQueuedRequests", () => {
+  it("cancels only the guest queued requests in the current channel", async () => {
+    const tx = {
+      songRequest: {
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "request-guest-1",
+            title: "Guest song 1",
+            rawText: "Guest raw 1"
+          },
+          {
+            id: "request-guest-2",
+            title: null,
+            rawText: "Guest raw 2"
+          }
+        ]),
+        updateMany: vi.fn().mockResolvedValue({ count: 2 })
+      }
+    };
+    const prisma = {
+      $transaction: vi.fn((callback: (txArg: typeof tx) => Promise<string>) => callback(tx)),
+      acquireSessionLock: vi.fn().mockResolvedValue(undefined),
+      guestProfile: {
+        findUnique: vi.fn().mockResolvedValue({ id: "guest-1", telegramUserId: "400" })
+      }
+    };
+    const queueService = {
+      refreshSessionDerivedState: vi.fn().mockResolvedValue(undefined)
+    };
+    const auditService = {
+      recordAction: vi.fn().mockResolvedValue(undefined)
+    };
+    const service = new SongRequestsService(
+      prisma as never,
+      {} as never,
+      { getActiveSession: vi.fn().mockResolvedValue({ id: "session-1" }) } as never,
+      queueService as never,
+      { getGlobalSettings: vi.fn().mockResolvedValue(DEFAULT_SETTINGS) } as never,
+      auditService as never,
+      {
+        getRequiredChannelBySlug: vi.fn().mockResolvedValue({
+          id: "channel-secondary",
+          slug: "secondary"
+        })
+      } as never
+    );
+
+    const message = await service.cancelTelegramGuestQueuedRequests("400", "secondary");
+
+    expect(tx.songRequest.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          sessionId: "session-1",
+          guestProfileId: "guest-1",
+          channelId: "channel-secondary"
+        })
+      })
+    );
+    expect(tx.songRequest.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          id: {
+            in: ["request-guest-1", "request-guest-2"]
+          }
+        }
+      })
+    );
+    expect(queueService.refreshSessionDerivedState).toHaveBeenCalledWith("session-1", tx);
+    expect(auditService.recordAction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorType: "telegram",
+        actorGuestId: "guest-1",
+        actionType: "telegram_guest_queued_requests_cancelled"
+      }),
+      tx
+    );
+    expect(message).toContain("Удалил из очереди 2 заявки");
+    expect(message).toContain("2. Guest raw 2");
+  });
+});
