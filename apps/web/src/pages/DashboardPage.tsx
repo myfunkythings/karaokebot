@@ -64,6 +64,7 @@ export function DashboardPage() {
   }
 
   const canManage = resolvedUser.role === "owner" || resolvedUser.role === "host";
+  const expectedQueueVersion = resolvedSnapshot.queueVersion ?? 0;
   return (
     <AppLayout user={resolvedUser} onLogout={() => (devOfflineMode ? undefined : logoutMutation.mutate())}>
       <div className="dashboard-grid dashboard-grid--host">
@@ -91,7 +92,7 @@ export function DashboardPage() {
             canManage={canManage}
             disabled={!resolvedSnapshot.session || closeSessionMutation.isPending}
             pending={closeSessionMutation.isPending}
-            onClose={() => closeSessionMutation.mutate()}
+            onClose={() => closeSessionMutation.mutate(expectedQueueVersion)}
           />
         </aside>
       </div>

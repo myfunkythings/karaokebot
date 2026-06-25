@@ -18,10 +18,12 @@ export const mockQueueSnapshot: QueueSnapshotDto = {
     id: "session-dev",
     title: "Среда, живая смена",
     status: "active",
+    version: 7,
     openedAt: minutesAgo(114),
     closedAt: null,
     timezone: "Europe/Moscow"
   },
+  queueVersion: 7,
   current: {
     id: "req-current",
     sessionId: "session-dev",
@@ -249,6 +251,36 @@ export const mockQueueSnapshot: QueueSnapshotDto = {
       manualRank: null,
       deferCount: 0,
       note: null
+    }
+  ],
+  activeOperators: [
+    {
+      id: "dev-host",
+      displayName: "Локальный ведущий",
+      role: "owner",
+      lastSeenAt: new Date(now).toISOString()
+    },
+    {
+      id: "dev-helper",
+      displayName: "Лера",
+      role: "owner",
+      lastSeenAt: minutesAgo(1)
+    }
+  ],
+  recentActions: [
+    {
+      id: "act-1",
+      actorDisplayName: "Лера",
+      actionType: "request_called",
+      label: "вызвала заявку",
+      createdAt: minutesAgo(2)
+    },
+    {
+      id: "act-2",
+      actorDisplayName: "Локальный ведущий",
+      actionType: "queue_reordered",
+      label: "переставил заявку",
+      createdAt: minutesAgo(4)
     }
   ],
   stats: {

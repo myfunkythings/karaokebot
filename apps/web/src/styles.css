@@ -2811,6 +2811,31 @@ a:focus-visible {
   min-width: 0;
 }
 
+.app-header__operator {
+  display: grid;
+  gap: 1px;
+  min-width: 112px;
+  padding: 5px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 12px;
+  background: var(--bg-surface);
+}
+
+.app-header__operator span {
+  font-size: 10px;
+  line-height: 12px;
+  color: var(--text-secondary);
+}
+
+.app-header__operator strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .app-nav {
   margin: 0;
   gap: 8px;
@@ -2970,6 +2995,78 @@ a:focus-visible {
   align-items: center;
   gap: 8px;
   justify-content: end;
+}
+
+.operator-conflict-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid #f3d5cb;
+  border-radius: 12px;
+  background: #fff6f3;
+  color: var(--danger-text);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.operator-conflict-banner button {
+  min-height: 30px;
+  border: 1px solid #f3d5cb;
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--danger-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.operator-presence-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 14px;
+  background: var(--bg-surface);
+}
+
+.operator-presence-panel > div {
+  min-width: 0;
+}
+
+.operator-presence-panel__label {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.operator-presence-panel strong {
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.operator-presence-panel ul {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.operator-presence-panel li {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .queue-panel {
@@ -3322,6 +3419,15 @@ a:focus-visible {
   .app-nav,
   .operational-toolbar__actions {
     width: 100%;
+  }
+
+  .app-header__operator,
+  .operator-presence-panel {
+    width: 100%;
+  }
+
+  .operator-presence-panel {
+    grid-template-columns: 1fr;
   }
 
   .app-nav {

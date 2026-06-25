@@ -11,6 +11,7 @@ export function LoginPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
+  const [operatorName, setOperatorName] = useState("");
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
 
@@ -25,13 +26,26 @@ export function LoginPage() {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    loginMutation.mutate({ login, password });
+    loginMutation.mutate({
+      login,
+      password,
+      operatorName: operatorName.trim() || undefined
+    });
   }
 
   return (
     <main className="login-page">
       <section className="login-card">
         <form className="stack" onSubmit={handleSubmit}>
+          <label className="field">
+            <span>Кто работает</span>
+            <input
+              value={operatorName}
+              onChange={(event) => setOperatorName(event.target.value)}
+              placeholder="Например: Лера"
+              autoComplete="name"
+            />
+          </label>
           <label className="field">
             <span>Общий логин</span>
             <input value={login} onChange={(event) => setLogin(event.target.value)} />

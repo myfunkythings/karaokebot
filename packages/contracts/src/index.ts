@@ -62,6 +62,7 @@ export type SessionSummary = {
   id: string;
   title: string;
   status: SessionStatus;
+  version: number;
   openedAt: string | null;
   closedAt: string | null;
   timezone: string;
@@ -97,9 +98,23 @@ export type SongRequestDto = {
 
 export type QueueSnapshotDto = {
   session: SessionSummary | null;
+  queueVersion: number | null;
   current: SongRequestDto | null;
   queued: SongRequestDto[];
   archive: SongRequestDto[];
+  activeOperators: Array<{
+    id: string;
+    displayName: string;
+    role: StaffRole;
+    lastSeenAt: string;
+  }>;
+  recentActions: Array<{
+    id: string;
+    actorDisplayName: string;
+    actionType: string;
+    label: string;
+    createdAt: string;
+  }>;
   stats: {
     totalRequests: number;
     totalSung: number;

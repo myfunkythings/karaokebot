@@ -5,6 +5,7 @@ import type { LoginResponseDto } from "@karaoke/contracts";
 type User = LoginResponseDto["user"];
 
 export function AppLayout({
+  user,
   onLogout,
   children
 }: PropsWithChildren<{
@@ -20,6 +21,11 @@ export function AppLayout({
         </div>
 
         <div className="app-header__actions">
+          <div className="app-header__operator">
+            <span>Оператор</span>
+            <strong>{user.displayName}</strong>
+          </div>
+
           <nav className="app-nav" aria-label="Разделы панели">
             <NavLink
               to="/"

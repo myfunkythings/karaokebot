@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException
 } from "@nestjs/common";
@@ -40,14 +41,21 @@ export class QueueService {
     private readonly settingsService: SettingsService
   ) {}
 
-  async getSnapshot(): Promise<QueueSnapshotDto> {
+  async getSnapshot(actorStaffId?: string): Promise<QueueSnapshotDto> {
     const session = await this.sessionsService.getActiveSession();
+    if (actorStaffId) {
+      await this.touchPresence(actorStaffId);
+    }
+
     if (!session) {
       return {
         session: null,
+        queueVersion: null,
         current: null,
         queued: [],
         archive: [],
+        activeOperators: await this.getActiveOperators(),
+        recentActions: [],
         stats: {
           totalRequests: 0,
           totalSung: 0,
@@ -88,22 +96,32 @@ export class QueueService {
         id: session.id,
         title: session.title,
         status: session.status,
+        version: session.version,
         openedAt: session.openedAt?.toISOString() ?? null,
         closedAt: session.closedAt?.toISOString() ?? null,
         timezone: session.timezone
       },
+      queueVersion: session.version,
       current: current ? toSongRequestDto(current) : null,
       queued: queued.map(toSongRequestDto),
       archive: archive.map(toSongRequestDto),
+      activeOperators: await this.getActiveOperators(),
+      recentActions: await this.getRecentActions(session.id),
       stats: aggregated
     };
   }
 
-  async moveRequest(requestId: string, targetPosition: number, actorStaffId: string) {
+  async moveRequest(
+    requestId: string,
+    targetPosition: number,
+    actorStaffId: string,
+    expectedQueueVersion: number
+  ) {
     const session = await this.sessionsService.getRequiredActiveSession();
 
     await this.prisma.$transaction(async (tx) => {
       await this.prisma.acquireSessionLock(session.id, tx);
+      await this.assertExpectedQueueVersion(session.id, expectedQueueVersion, tx);
 
       const request = await tx.songRequest.findUnique({ where: { id: requestId } });
       if (!request || request.sessionId !== session.id || request.status !== SongRequestStatus.queued) {
@@ -148,6 +166,7 @@ export class QueueService {
   async deferRequest(
     requestId: string,
     actorStaffId: string,
+    expectedQueueVersion: number,
     positionsOverride?: number
   ) {
     const session = await this.sessionsService.getRequiredActiveSession();
@@ -158,6 +177,7 @@ export class QueueService {
 
     await this.prisma.$transaction(async (tx) => {
       await this.prisma.acquireSessionLock(session.id, tx);
+      await this.assertExpectedQueueVersion(session.id, expectedQueueVersion, tx);
 
       const queued = await tx.songRequest.findMany({
         where: {
@@ -211,10 +231,11 @@ export class QueueService {
     return this.getSnapshot();
   }
 
-  async rebalanceQueue(actorStaffId: string) {
+  async rebalanceQueue(actorStaffId: string, expectedQueueVersion: number) {
     const session = await this.sessionsService.getRequiredActiveSession();
     await this.prisma.$transaction(async (tx) => {
       await this.prisma.acquireSessionLock(session.id, tx);
+      await this.assertExpectedQueueVersion(session.id, expectedQueueVersion, tx);
       const snapshots = await this.snapshotQueuedRequests(session.id, tx);
 
       await tx.songRequest.updateMany({
@@ -249,11 +270,12 @@ export class QueueService {
     return this.getSnapshot();
   }
 
-  async moveToNextPerformer(actorStaffId: string) {
+  async moveToNextPerformer(actorStaffId: string, expectedQueueVersion: number) {
     const session = await this.sessionsService.getRequiredActiveSession();
 
     await this.prisma.$transaction(async (tx) => {
       await this.prisma.acquireSessionLock(session.id, tx);
+      await this.assertExpectedQueueVersion(session.id, expectedQueueVersion, tx);
 
       const current = await tx.songRequest.findFirst({
         where: {
@@ -328,11 +350,16 @@ export class QueueService {
     return this.getSnapshot();
   }
 
-  async callRequest(requestId: string, actorStaffId: string) {
+  async callRequest(
+    requestId: string,
+    actorStaffId: string,
+    expectedQueueVersion: number
+  ) {
     const session = await this.sessionsService.getRequiredActiveSession();
 
     await this.prisma.$transaction(async (tx) => {
       await this.prisma.acquireSessionLock(session.id, tx);
+      await this.assertExpectedQueueVersion(session.id, expectedQueueVersion, tx);
 
       const current = await tx.songRequest.findFirst({
         where: {
@@ -400,11 +427,16 @@ export class QueueService {
     return this.getSnapshot();
   }
 
-  async cancelGuestFutureRequests(guestId: string, actorStaffId: string) {
+  async cancelGuestFutureRequests(
+    guestId: string,
+    actorStaffId: string,
+    expectedQueueVersion: number
+  ) {
     const session = await this.sessionsService.getRequiredActiveSession();
 
     await this.prisma.$transaction(async (tx) => {
       await this.prisma.acquireSessionLock(session.id, tx);
+      await this.assertExpectedQueueVersion(session.id, expectedQueueVersion, tx);
 
       const affected = await tx.songRequest.findMany({
         where: {
@@ -463,10 +495,11 @@ export class QueueService {
     return this.getSnapshot();
   }
 
-  async undoLastAction(actorStaffId: string) {
+  async undoLastAction(actorStaffId: string, expectedQueueVersion: number) {
     const session = await this.sessionsService.getRequiredActiveSession();
     await this.prisma.$transaction(async (tx) => {
       await this.prisma.acquireSessionLock(session.id, tx);
+      await this.assertExpectedQueueVersion(session.id, expectedQueueVersion, tx);
       const lastAction = await this.auditService.getLastUndoableAction(session.id, tx);
       if (!lastAction || !lastAction.inversePayloadJson || lastAction.undoneByActionId) {
         throw new NotFoundException("No undoable action");
@@ -634,6 +667,123 @@ export class QueueService {
         queueRank: null
       }
     });
+
+    await tx.session.update({
+      where: { id: sessionId },
+      data: {
+        version: {
+          increment: 1
+        }
+      }
+    });
+  }
+
+  async bumpQueueVersion(
+    sessionId: string,
+    tx: Prisma.TransactionClient = this.prisma
+  ) {
+    await tx.session.update({
+      where: { id: sessionId },
+      data: {
+        version: {
+          increment: 1
+        }
+      }
+    });
+  }
+
+  private async assertExpectedQueueVersion(
+    sessionId: string,
+    expectedQueueVersion: number,
+    tx: Prisma.TransactionClient
+  ) {
+    const session = await tx.session.findUnique({
+      where: { id: sessionId },
+      select: { version: true }
+    });
+    if (!session) {
+      throw new NotFoundException("Session not found");
+    }
+    if (session.version !== expectedQueueVersion) {
+      throw new ConflictException(
+        "Очередь уже изменилась на другом устройстве. Обновите экран и повторите действие."
+      );
+    }
+  }
+
+  private async touchPresence(staffUserId: string) {
+    await this.prisma.staffPresence.upsert({
+      where: { staffUserId },
+      update: { lastSeenAt: new Date() },
+      create: { staffUserId }
+    });
+  }
+
+  private async getActiveOperators() {
+    const since = new Date(Date.now() - 1000 * 60 * 2);
+    const rows = await this.prisma.staffPresence.findMany({
+      where: {
+        lastSeenAt: {
+          gte: since
+        },
+        staffUser: {
+          isActive: true
+        }
+      },
+      include: {
+        staffUser: true
+      },
+      orderBy: {
+        lastSeenAt: "desc"
+      }
+    });
+
+    return rows.map((row) => ({
+      id: row.staffUser.id,
+      displayName: row.staffUser.displayName,
+      role: row.staffUser.role,
+      lastSeenAt: row.lastSeenAt.toISOString()
+    }));
+  }
+
+  private async getRecentActions(sessionId: string) {
+    const actions = await this.prisma.actionLog.findMany({
+      where: { sessionId },
+      include: {
+        actorStaff: true
+      },
+      orderBy: { createdAt: "desc" },
+      take: 8
+    });
+
+    return actions.map((action) => ({
+      id: action.id,
+      actorDisplayName:
+        action.actorStaff?.displayName ??
+        (action.actorType === "telegram" ? "Telegram" : "Система"),
+      actionType: action.actionType,
+      label: this.getActionLabel(action.actionType),
+      createdAt: action.createdAt.toISOString()
+    }));
+  }
+
+  private getActionLabel(actionType: string) {
+    const labels: Record<string, string> = {
+      guest_left_venue: "снял заявки гостя",
+      manual_request_created: "добавил заявку вручную",
+      next_performer: "вызвал следующего исполнителя",
+      queue_rebalanced: "вернул автоочередь",
+      queue_reordered: "переставил заявку",
+      request_called: "вызвал заявку",
+      request_deferred: "отложил заявку",
+      request_raw_text_updated: "изменил текст заявки",
+      session_closed: "закрыл смену",
+      session_opened: "открыл смену",
+      telegram_request_created: "принял заявку из Telegram",
+      undo: "отменил последнее действие"
+    };
+
+    return labels[actionType] ?? actionType;
   }
 
   private async getAggregatedStats(sessionId: string) {

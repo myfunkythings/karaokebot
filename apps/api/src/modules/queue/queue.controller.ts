@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post } from "@nestjs/common";
 import { CurrentUser } from "../../common/decorators/current-user.decorator.js";
 import { Roles } from "../../common/decorators/roles.decorator.js";
 import type { AuthenticatedUser } from "../../common/types/authenticated-user.js";
-import { DeferRequestDto, MoveRequestDto } from "./queue.dto.js";
+import { DeferRequestDto, MoveRequestDto, QueueVersionDto } from "./queue.dto.js";
 import { QueueService } from "./queue.service.js";
 
 @Controller("queue")
@@ -11,20 +11,26 @@ export class QueueController {
 
   @Roles("viewer", "host", "owner")
   @Get("snapshot")
-  async getSnapshot() {
-    return this.queueService.getSnapshot();
+  async getSnapshot(@CurrentUser() user: AuthenticatedUser) {
+    return this.queueService.getSnapshot(user.id);
   }
 
   @Roles("host", "owner")
   @Post("next")
-  async moveToNextPerformer(@CurrentUser() user: AuthenticatedUser) {
-    return this.queueService.moveToNextPerformer(user.id);
+  async moveToNextPerformer(
+    @Body() body: QueueVersionDto,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.queueService.moveToNextPerformer(user.id, body.expectedQueueVersion);
   }
 
   @Roles("host", "owner")
   @Post("rebalance")
-  async rebalanceQueue(@CurrentUser() user: AuthenticatedUser) {
-    return this.queueService.rebalanceQueue(user.id);
+  async rebalanceQueue(
+    @Body() body: QueueVersionDto,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.queueService.rebalanceQueue(user.id, body.expectedQueueVersion);
   }
 
   @Roles("host", "owner")
@@ -34,16 +40,22 @@ export class QueueController {
     @Body() body: MoveRequestDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    return this.queueService.moveRequest(requestId, body.position, user.id);
+    return this.queueService.moveRequest(
+      requestId,
+      body.position,
+      user.id,
+      body.expectedQueueVersion
+    );
   }
 
   @Roles("host", "owner")
   @Post(":requestId/call")
   async callRequest(
     @Param("requestId") requestId: string,
+    @Body() body: QueueVersionDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    return this.queueService.callRequest(requestId, user.id);
+    return this.queueService.callRequest(requestId, user.id, body.expectedQueueVersion);
   }
 
   @Roles("host", "owner")
@@ -53,21 +65,34 @@ export class QueueController {
     @Body() body: DeferRequestDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    return this.queueService.deferRequest(requestId, user.id, body.positions);
+    return this.queueService.deferRequest(
+      requestId,
+      user.id,
+      body.expectedQueueVersion,
+      body.positions
+    );
   }
 
   @Roles("host", "owner")
   @Post("guest/:guestId/cancel-future")
   async cancelGuestFutureRequests(
     @Param("guestId") guestId: string,
+    @Body() body: QueueVersionDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    return this.queueService.cancelGuestFutureRequests(guestId, user.id);
+    return this.queueService.cancelGuestFutureRequests(
+      guestId,
+      user.id,
+      body.expectedQueueVersion
+    );
   }
 
   @Roles("host", "owner")
   @Post("undo")
-  async undo(@CurrentUser() user: AuthenticatedUser) {
-    return this.queueService.undoLastAction(user.id);
+  async undo(
+    @Body() body: QueueVersionDto,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.queueService.undoLastAction(user.id, body.expectedQueueVersion);
   }
 }

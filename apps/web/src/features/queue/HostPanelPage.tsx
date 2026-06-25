@@ -17,6 +17,7 @@ export function HostPanelPage({
 }) {
   const queryClient = useQueryClient();
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [conflictMessage, setConflictMessage] = useState<string | null>(null);
 
   const refreshEverything = async () => {
     await Promise.all([
@@ -24,27 +25,52 @@ export function HostPanelPage({
       queryClient.invalidateQueries({ queryKey: ["stats", "active"] })
     ]);
   };
+  const handleMutationError = (error: Error) => {
+    setConflictMessage(error.message);
+    void queryClient.invalidateQueries({ queryKey: ["queue", "snapshot"] });
+  };
+  const getExpectedQueueVersion = () => {
+    if (!snapshot.queueVersion) {
+      throw new Error("Смена не открыта");
+    }
+    return snapshot.queueVersion;
+  };
 
   const nextMutation = useMutation({
     mutationFn: api.nextPerformer,
-    onSuccess: refreshEverything
+    onSuccess: refreshEverything,
+    onError: handleMutationError
   });
   const callRequestMutation = useMutation({
-    mutationFn: api.callRequest,
-    onSuccess: refreshEverything
+    mutationFn: ({ requestId, expectedQueueVersion }: { requestId: string; expectedQueueVersion: number }) =>
+      api.callRequest(requestId, expectedQueueVersion),
+    onSuccess: refreshEverything,
+    onError: handleMutationError
   });
   const deferMutation = useMutation({
-    mutationFn: api.deferRequest,
-    onSuccess: refreshEverything
+    mutationFn: ({ requestId, expectedQueueVersion }: { requestId: string; expectedQueueVersion: number }) =>
+      api.deferRequest(requestId, expectedQueueVersion),
+    onSuccess: refreshEverything,
+    onError: handleMutationError
   });
   const cancelGuestMutation = useMutation({
-    mutationFn: api.cancelGuestFuture,
-    onSuccess: refreshEverything
+    mutationFn: ({ guestId, expectedQueueVersion }: { guestId: string; expectedQueueVersion: number }) =>
+      api.cancelGuestFuture(guestId, expectedQueueVersion),
+    onSuccess: refreshEverything,
+    onError: handleMutationError
   });
   const moveMutation = useMutation({
-    mutationFn: ({ requestId, position }: { requestId: string; position: number }) =>
-      api.moveRequest(requestId, position),
-    onSuccess: refreshEverything
+    mutationFn: ({
+      requestId,
+      position,
+      expectedQueueVersion
+    }: {
+      requestId: string;
+      position: number;
+      expectedQueueVersion: number;
+    }) => api.moveRequest(requestId, position, expectedQueueVersion),
+    onSuccess: refreshEverything,
+    onError: handleMutationError
   });
   const updateRequestRawTextMutation = useMutation({
     mutationFn: ({ requestId, rawText }: { requestId: string; rawText: string }) =>
@@ -53,7 +79,8 @@ export function HostPanelPage({
   });
   const undoMutation = useMutation({
     mutationFn: api.undoLastAction,
-    onSuccess: refreshEverything
+    onSuccess: refreshEverything,
+    onError: handleMutationError
   });
 
   const queueSearch = searchValue.trim().toLowerCase();
@@ -115,7 +142,10 @@ export function HostPanelPage({
     }
 
     void copyRequestForCall(request.rawText);
-    callRequestMutation.mutate(request.id);
+    callRequestMutation.mutate({
+      requestId: request.id,
+      expectedQueueVersion: getExpectedQueueVersion()
+    });
   }
 
   function handleCallNext() {
@@ -128,7 +158,7 @@ export function HostPanelPage({
       void copyRequestForCall(nextRequest.rawText);
     }
 
-    nextMutation.mutate();
+    nextMutation.mutate(getExpectedQueueVersion());
   }
 
   function handleMoveRequest(requestId: string, currentPosition: number) {
@@ -143,13 +173,20 @@ export function HostPanelPage({
       return;
     }
 
-    moveMutation.mutate({ requestId, position: parsedPosition });
+    moveMutation.mutate({
+      requestId,
+      position: parsedPosition,
+      expectedQueueVersion: getExpectedQueueVersion()
+    });
   }
 
   function handleNoShow(guestName: string, guestId: string) {
     const confirmed = window.confirm(`Отметить, что ${guestName} не дошёл(а), и снять будущие заявки?`);
     if (confirmed) {
-      cancelGuestMutation.mutate(guestId);
+      cancelGuestMutation.mutate({
+        guestId,
+        expectedQueueVersion: getExpectedQueueVersion()
+      });
     }
   }
 
@@ -180,12 +217,46 @@ export function HostPanelPage({
           </button>
           <button
             className="secondary-button secondary-button--toolbar"
-            onClick={() => undoMutation.mutate()}
+            onClick={() => undoMutation.mutate(getExpectedQueueVersion())}
             disabled={!canManage || undoMutation.isPending}
             type="button"
           >
             {undoMutation.isPending ? "Отменяем..." : "Отменить последнее действие"}
           </button>
+        </div>
+      </section>
+
+      {conflictMessage ? (
+        <section className="operator-conflict-banner">
+          <span>{conflictMessage}</span>
+          <button type="button" onClick={() => setConflictMessage(null)}>
+            Понятно
+          </button>
+        </section>
+      ) : null}
+
+      <section className="operator-presence-panel">
+        <div>
+          <span className="operator-presence-panel__label">В смене сейчас</span>
+          <strong>
+            {snapshot.activeOperators.length
+              ? snapshot.activeOperators.map((operator) => operator.displayName).join(", ")
+              : "только вы"}
+          </strong>
+        </div>
+        <div>
+          <span className="operator-presence-panel__label">Последние действия</span>
+          <ul>
+            {snapshot.recentActions.length ? (
+              snapshot.recentActions.slice(0, 3).map((action) => (
+                <li key={action.id}>
+                  <strong>{action.actorDisplayName}</strong> {action.label}
+                </li>
+              ))
+            ) : (
+              <li>Пока действий нет</li>
+            )}
+          </ul>
         </div>
       </section>
 
@@ -196,8 +267,19 @@ export function HostPanelPage({
           sungCountByGuestId={sungCountByGuestId}
           canManage={canManage}
           onCall={handleCallRequest}
-          onDefer={(requestId) => deferMutation.mutate(requestId)}
-          onReorder={(requestId, position) => moveMutation.mutate({ requestId, position })}
+          onDefer={(requestId) =>
+            deferMutation.mutate({
+              requestId,
+              expectedQueueVersion: getExpectedQueueVersion()
+            })
+          }
+          onReorder={(requestId, position) =>
+            moveMutation.mutate({
+              requestId,
+              position,
+              expectedQueueVersion: getExpectedQueueVersion()
+            })
+          }
           onMove={(request) => handleMoveRequest(request.id, snapshot.queued.findIndex((item) => item.id === request.id) + 1)}
           onNoShow={(request) => handleNoShow(request.guest.displayName, request.guest.id)}
           onCopied={setToastMessage}

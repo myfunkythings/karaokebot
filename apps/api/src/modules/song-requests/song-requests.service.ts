@@ -180,6 +180,7 @@ export class SongRequestsService {
         throw new NotFoundException("Song request not found");
       }
 
+      await this.prisma.acquireSessionLock(existingRequest.sessionId, tx);
       const parsed = parseSongRequest(input.rawText);
       const updatedRequest = await tx.songRequest.update({
         where: { id: input.requestId },
@@ -207,6 +208,7 @@ export class SongRequestsService {
         },
         tx
       );
+      await this.queueService.bumpQueueVersion(existingRequest.sessionId, tx);
 
       return toSongRequestDto(updatedRequest);
     });

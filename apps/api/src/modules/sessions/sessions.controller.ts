@@ -2,7 +2,7 @@ import { Body, Controller, Get, Post } from "@nestjs/common";
 import { CurrentUser } from "../../common/decorators/current-user.decorator.js";
 import { Roles } from "../../common/decorators/roles.decorator.js";
 import type { AuthenticatedUser } from "../../common/types/authenticated-user.js";
-import { OpenSessionDto } from "./sessions.dto.js";
+import { CloseSessionDto, OpenSessionDto } from "./sessions.dto.js";
 import { SessionsService } from "./sessions.service.js";
 
 @Controller("sessions")
@@ -30,7 +30,10 @@ export class SessionsController {
 
   @Roles("host", "owner")
   @Post("active/close")
-  async closeActiveSession(@CurrentUser() user: AuthenticatedUser) {
-    return this.sessionsService.closeActiveSession(user.id);
+  async closeActiveSession(
+    @Body() body: CloseSessionDto,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.sessionsService.closeActiveSession(user.id, body.expectedQueueVersion);
   }
 }
