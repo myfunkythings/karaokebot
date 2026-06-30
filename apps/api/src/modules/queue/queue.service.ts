@@ -10,9 +10,9 @@ import {
   SongRequestOutcome,
   SongRequestStatus
 } from "@prisma/client";
-import type { QueueSnapshotDto } from "@karaoke/contracts";
+import type { PublicQueueSnapshotDto, QueueSnapshotDto } from "@karaoke/contracts";
 import { PrismaService } from "../../common/db/prisma.service.js";
-import { toSongRequestDto } from "../../common/utils/song-request.mapper.js";
+import { toPublicSongRequestDto, toSongRequestDto } from "../../common/utils/song-request.mapper.js";
 import { AuditService } from "../audit/audit.service.js";
 import { SessionsService } from "../sessions/sessions.service.js";
 import { buildQueuePlan } from "./queue-order.js";
@@ -42,6 +42,55 @@ export class QueueService {
     private readonly settingsService: SettingsService,
     private readonly requestChannelsService: RequestChannelsService
   ) {}
+
+  async getPublicSnapshot(channelSlug?: string | null): Promise<PublicQueueSnapshotDto> {
+    const channel = await this.requestChannelsService.getRequiredChannelBySlug(channelSlug);
+    const session = await this.sessionsService.getActiveSession();
+
+    if (!session) {
+      return {
+        isOpen: false,
+        activeChannel: {
+          color: channel.color
+        },
+        current: null,
+        queued: [],
+        stats: {
+          queuedCount: 0,
+          hasCurrent: false
+        },
+        updatedAt: new Date().toISOString()
+      };
+    }
+
+    const requests = await this.prisma.songRequest.findMany({
+      where: {
+        sessionId: session.id,
+        channelId: channel.id,
+        status: {
+          in: [SongRequestStatus.current, SongRequestStatus.queued]
+        }
+      },
+      orderBy: [{ queueRank: "asc" }, { requestedAt: "asc" }]
+    });
+
+    const current = requests.find((request) => request.status === SongRequestStatus.current) ?? null;
+    const queued = requests.filter((request) => request.status === SongRequestStatus.queued);
+
+    return {
+      isOpen: true,
+      activeChannel: {
+        color: channel.color
+      },
+      current: current ? toPublicSongRequestDto(current, null) : null,
+      queued: queued.map((request, index) => toPublicSongRequestDto(request, index + 1)),
+      stats: {
+        queuedCount: queued.length,
+        hasCurrent: Boolean(current)
+      },
+      updatedAt: new Date().toISOString()
+    };
+  }
 
   async getSnapshot(
     channelSlug?: string | null,

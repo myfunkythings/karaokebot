@@ -3,6 +3,7 @@ import { LoginPage } from "../pages/LoginPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { ArchivePage } from "../pages/ArchivePage";
 import { SettingsPage } from "../pages/SettingsPage";
+import { PublicQueuePage } from "../pages/PublicQueuePage";
 import { RequireAuth } from "../features/auth/RequireAuth";
 
 const appBase = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
@@ -23,6 +24,10 @@ export const router = createBrowserRouter([
         <DashboardPage />
       </RequireAuth>
     )
+  },
+  {
+    path: "/queue/:botSlug",
+    element: <PublicQueuePage />
   },
   {
     path: "/archive",

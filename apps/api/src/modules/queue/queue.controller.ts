@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { CurrentUser } from "../../common/decorators/current-user.decorator.js";
+import { Public } from "../../common/decorators/public.decorator.js";
 import { Roles } from "../../common/decorators/roles.decorator.js";
 import type { AuthenticatedUser } from "../../common/types/authenticated-user.js";
 import { ChannelScopedQueueVersionDto, DeferRequestDto, MoveRequestDto, QueueVersionDto } from "./queue.dto.js";
@@ -8,6 +9,12 @@ import { QueueService } from "./queue.service.js";
 @Controller("queue")
 export class QueueController {
   constructor(private readonly queueService: QueueService) {}
+
+  @Public()
+  @Get("public-snapshot")
+  async getPublicSnapshot(@Query("channel") channelSlug: string | undefined) {
+    return this.queueService.getPublicSnapshot(channelSlug);
+  }
 
   @Roles("viewer", "host", "owner")
   @Get("snapshot")

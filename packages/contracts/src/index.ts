@@ -104,6 +104,26 @@ export type SongRequestDto = {
   note: string | null;
 };
 
+export type PublicSongRequestDto = {
+  position: number | null;
+  rawText: string;
+  artist: string | null;
+  title: string | null;
+  status: Extract<SongRequestStatus, "queued" | "current">;
+};
+
+export type PublicQueueSnapshotDto = {
+  isOpen: boolean;
+  activeChannel: Pick<RequestChannelDto, "color">;
+  current: PublicSongRequestDto | null;
+  queued: PublicSongRequestDto[];
+  stats: {
+    queuedCount: number;
+    hasCurrent: boolean;
+  };
+  updatedAt: string;
+};
+
 export type QueueSnapshotDto = {
   session: SessionSummary | null;
   queueVersion: number | null;

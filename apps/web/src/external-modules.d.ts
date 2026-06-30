@@ -111,6 +111,26 @@ declare module "@karaoke/contracts" {
     };
   };
 
+  export type PublicSongRequestDto = {
+    position: number | null;
+    rawText: string;
+    artist: string | null;
+    title: string | null;
+    status: "queued" | "current";
+  };
+
+  export type PublicQueueSnapshotDto = {
+    isOpen: boolean;
+    activeChannel: Pick<RequestChannelDto, "color">;
+    current: PublicSongRequestDto | null;
+    queued: PublicSongRequestDto[];
+    stats: {
+      queuedCount: number;
+      hasCurrent: boolean;
+    };
+    updatedAt: string;
+  };
+
   export type SessionStatsDto = {
     totalRequests: number;
     totalSung: number;

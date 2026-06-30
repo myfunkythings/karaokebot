@@ -1,6 +1,7 @@
 import type {
   GlobalSettings,
   LoginResponseDto,
+  PublicQueueSnapshotDto,
   QueueSnapshotDto,
   SessionStatsDto
 } from "@karaoke/contracts";
@@ -48,6 +49,10 @@ export const api = {
   getQueueSnapshot: (channelSlug?: string) =>
     apiFetch<QueueSnapshotDto>(
       `/queue/snapshot${channelSlug ? `?channel=${encodeURIComponent(channelSlug)}` : ""}`
+    ),
+  getPublicQueueSnapshot: (channelSlug: string) =>
+    apiFetch<PublicQueueSnapshotDto>(
+      `/queue/public-snapshot?channel=${encodeURIComponent(channelSlug)}`
     ),
   getStats: () => apiFetch<SessionStatsDto | null>("/stats/active-session"),
   getSettings: () => apiFetch<GlobalSettings>("/settings/global"),

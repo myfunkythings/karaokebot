@@ -1,5 +1,5 @@
 import type { SongRequest, GuestProfile, RequestChannel } from "@prisma/client";
-import type { SongRequestDto } from "@karaoke/contracts";
+import type { PublicSongRequestDto, SongRequestDto } from "@karaoke/contracts";
 
 type SongRequestWithGuest = SongRequest & {
   guestProfile: GuestProfile;
@@ -37,5 +37,20 @@ export function toSongRequestDto(request: SongRequestWithGuest): SongRequestDto 
     manualRank: request.manualRank,
     deferCount: request.deferCount,
     note: request.note
+  };
+}
+
+type PublicSongRequest = Pick<SongRequest, "rawText" | "artist" | "title" | "status">;
+
+export function toPublicSongRequestDto(
+  request: PublicSongRequest,
+  position: number | null
+): PublicSongRequestDto {
+  return {
+    position,
+    rawText: request.rawText,
+    artist: request.artist,
+    title: request.title,
+    status: request.status === "current" ? "current" : "queued"
   };
 }
