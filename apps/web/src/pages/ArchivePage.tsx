@@ -3,11 +3,13 @@ import { api } from "../shared/api/client";
 import { AppLayout } from "../app/AppLayout";
 import { ArchivePanel } from "../features/archive/ArchivePanel";
 import { StatsPanel } from "../features/stats/StatsPanel";
+import { getActiveBotProfile, getLoginPath } from "../app/botProfiles";
 
-const loginPath = `${import.meta.env.BASE_URL}login`;
+const loginPath = getLoginPath();
 
 export function ArchivePage() {
   const queryClient = useQueryClient();
+  const activeProfile = getActiveBotProfile();
   const meQuery = useQuery({
     queryKey: ["auth", "me"],
     queryFn: api.me
@@ -39,7 +41,7 @@ export function ArchivePage() {
   }
 
   return (
-    <AppLayout user={user} onLogout={() => logoutMutation.mutate()}>
+    <AppLayout user={user} profile={activeProfile} queuePath={activeProfile.queuePath} onLogout={() => logoutMutation.mutate()}>
       <div className="dashboard-grid">
         <div className="dashboard-column dashboard-column--wide">
           <ArchivePanel archive={snapshot.archive} />

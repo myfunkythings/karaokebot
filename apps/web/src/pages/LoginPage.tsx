@@ -2,10 +2,13 @@ import { FormEvent, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../shared/api/client";
+import { getActiveBotProfile } from "../app/botProfiles";
 
 export function LoginPage() {
+  const activeProfile = getActiveBotProfile();
+
   if (import.meta.env.DEV) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={activeProfile.adminPath} replace />;
   }
 
   const queryClient = useQueryClient();
@@ -19,7 +22,7 @@ export function LoginPage() {
     mutationFn: api.login,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
-      const redirectTo = (location.state as { from?: string } | null)?.from ?? "/";
+      const redirectTo = (location.state as { from?: string } | null)?.from ?? activeProfile.adminPath;
       navigate(redirectTo, { replace: true });
     }
   });

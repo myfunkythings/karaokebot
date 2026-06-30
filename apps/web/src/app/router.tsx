@@ -5,8 +5,10 @@ import { ArchivePage } from "../pages/ArchivePage";
 import { SettingsPage } from "../pages/SettingsPage";
 import { PublicQueuePage } from "../pages/PublicQueuePage";
 import { RequireAuth } from "../features/auth/RequireAuth";
+import { getActiveBotProfile, getRuntimeRouterBase } from "./botProfiles";
 
-const appBase = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
+const appBase = getRuntimeRouterBase();
+const activeBotProfile = getActiveBotProfile();
 
 export const router = createBrowserRouter([
   {
@@ -15,7 +17,15 @@ export const router = createBrowserRouter([
   },
   {
     path: "/",
-    element: <Navigate to="/bot/mishka" replace />
+    element: activeBotProfile.publicPath === "/" ? <PublicQueuePage /> : <Navigate to={activeBotProfile.adminPath} replace />
+  },
+  {
+    path: "/admin",
+    element: (
+      <RequireAuth>
+        <DashboardPage />
+      </RequireAuth>
+    )
   },
   {
     path: "/bot/:channelSlug",

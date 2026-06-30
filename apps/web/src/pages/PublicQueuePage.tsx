@@ -2,11 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { PublicQueueSnapshotDto, PublicSongRequestDto } from "@karaoke/contracts";
 import { Navigate, useParams } from "react-router-dom";
 import { api } from "../shared/api/client";
-
-const publicBotRoutes: Record<string, string> = {
-  mishka: "main",
-  zapoi: "secondary"
-};
+import { getActiveBotProfile, getBotProfileBySlug } from "../app/botProfiles";
 
 const mockPublicQueueSnapshot: PublicQueueSnapshotDto = {
   isOpen: true,
@@ -122,7 +118,10 @@ function PublicQueueRow({ request, isNext = false }: { request: PublicSongReques
 
 export function PublicQueuePage() {
   const { botSlug } = useParams();
-  const channelSlug = botSlug ? publicBotRoutes[botSlug] : undefined;
+  const hostProfile = getActiveBotProfile();
+  const routeProfile = getBotProfileBySlug(botSlug);
+  const activeProfile = routeProfile ?? (!botSlug ? hostProfile : null);
+  const channelSlug = activeProfile?.channelSlug;
 
   const snapshotQuery = useQuery({
     queryKey: ["queue", "public-snapshot", channelSlug],
@@ -132,8 +131,8 @@ export function PublicQueuePage() {
     retry: import.meta.env.DEV ? false : 2
   });
 
-  if (!channelSlug) {
-    return <Navigate to="/queue/mishka" replace />;
+  if (!activeProfile || !channelSlug) {
+    return <Navigate to={hostProfile.publicPath} replace />;
   }
 
   const devOfflineMode = import.meta.env.DEV && snapshotQuery.isError;
@@ -149,7 +148,7 @@ export function PublicQueuePage() {
         <section className="host-panel-page public-queue-shell">
           <div className="host-console-bar public-queue-topbar">
             <div className="host-console-bar__admin">
-              <strong>{botSlug === "zapoi" ? "Запой" : "Мишка"}</strong>
+              <strong>{activeProfile.title}</strong>
             </div>
           </div>
           <p className="public-queue-empty">Не удалось загрузить очередь. Обновите страницу чуть позже.</p>
@@ -159,11 +158,11 @@ export function PublicQueuePage() {
   }
 
   return (
-    <main className="page-shell public-queue-page">
+    <main className={`page-shell public-queue-page ${activeProfile.themeClassName}`}>
       <section className="host-panel-page public-queue-shell">
         <div className="host-console-bar public-queue-topbar">
           <div className="host-console-bar__admin">
-            <strong>{botSlug === "zapoi" ? "Запой" : "Мишка"}</strong>
+            <strong>{activeProfile.title}</strong>
           </div>
 
           <div className="queue-panel__controls public-queue-meta">

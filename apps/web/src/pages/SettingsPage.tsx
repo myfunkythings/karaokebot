@@ -2,11 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../shared/api/client";
 import { AppLayout } from "../app/AppLayout";
 import { SettingsPanel } from "../features/settings/SettingsPanel";
+import { getActiveBotProfile, getLoginPath } from "../app/botProfiles";
 
-const loginPath = `${import.meta.env.BASE_URL}login`;
+const loginPath = getLoginPath();
 
 export function SettingsPage() {
   const queryClient = useQueryClient();
+  const activeProfile = getActiveBotProfile();
   const meQuery = useQuery({
     queryKey: ["auth", "me"],
     queryFn: api.me
@@ -32,7 +34,7 @@ export function SettingsPage() {
   }
 
   return (
-    <AppLayout user={user} onLogout={() => logoutMutation.mutate()}>
+    <AppLayout user={user} profile={activeProfile} queuePath={activeProfile.queuePath} onLogout={() => logoutMutation.mutate()}>
       <div className="settings-page-grid">
         <SettingsPanel settings={settings} canEdit={user.role === "owner"} />
       </div>

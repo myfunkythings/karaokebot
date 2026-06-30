@@ -8,23 +8,25 @@ import { ManualRequestForm } from "../features/queue/ManualRequestForm";
 import { MiniSessionStatus } from "../features/session-control/MiniSessionStatus";
 import { CloseShiftSection } from "../features/session-control/CloseShiftSection";
 import { mockQueueSnapshot, mockUser } from "../shared/mock/hostPanelMock";
+import {
+  adminBotRoutes,
+  getActiveBotProfile,
+  getBotProfileBySlug,
+  getLoginPath,
+  legacyAdminBotRoutes
+} from "../app/botProfiles";
 
-const loginPath = `${import.meta.env.BASE_URL}login`;
-const adminBotRoutes: Record<string, string> = {
-  mishka: "main",
-  zapoi: "secondary"
-};
-const legacyAdminBotRoutes: Record<string, string> = {
-  main: "mishka",
-  secondary: "zapoi"
-};
+const loginPath = getLoginPath();
 
 export function DashboardPage() {
   const queryClient = useQueryClient();
   const [queueSearchValue, setQueueSearchValue] = useState("");
   const { channelSlug } = useParams();
   const routeBotSlug = channelSlug?.trim();
-  const activeChannelSlug = routeBotSlug ? adminBotRoutes[routeBotSlug] : undefined;
+  const hostProfile = getActiveBotProfile();
+  const routeProfile = getBotProfileBySlug(routeBotSlug);
+  const activeProfile = routeProfile ?? (!routeBotSlug ? hostProfile : null);
+  const activeChannelSlug = activeProfile?.channelSlug;
   const meQuery = useQuery({
     queryKey: ["auth", "me"],
     queryFn: api.me
@@ -60,14 +62,16 @@ export function DashboardPage() {
     ((meQuery.isError && snapshotQuery.isError) || (!user && !snapshot && !isLoading));
   const resolvedUser = devOfflineMode ? mockUser : user;
   const resolvedSnapshot = devOfflineMode ? mockQueueSnapshot : snapshot;
-  const resolvedRouteBotSlug = devOfflineMode ? "mishka" : routeBotSlug;
+  const resolvedProfile = devOfflineMode ? hostProfile : activeProfile;
 
   if (routeBotSlug && legacyAdminBotRoutes[routeBotSlug] && !devOfflineMode) {
     return <Navigate to={`/bot/${legacyAdminBotRoutes[routeBotSlug]}`} replace />;
   }
 
-  if (!activeChannelSlug && !devOfflineMode) {
-    return <Navigate to="/bot/mishka" replace />;
+  if ((routeBotSlug && !adminBotRoutes[routeBotSlug as keyof typeof adminBotRoutes]) || !activeChannelSlug) {
+    if (!devOfflineMode) {
+      return <Navigate to={hostProfile.adminPath} replace />;
+    }
   }
 
   if (isLoading) {
@@ -83,7 +87,8 @@ export function DashboardPage() {
   return (
     <AppLayout
       user={resolvedUser}
-      queuePath={`/bot/${resolvedRouteBotSlug ?? "mishka"}`}
+      profile={resolvedProfile ?? hostProfile}
+      queuePath={resolvedProfile?.queuePath ?? hostProfile.queuePath}
       onLogout={() => (devOfflineMode ? undefined : logoutMutation.mutate())}
     >
       <div className="dashboard-grid dashboard-grid--host">

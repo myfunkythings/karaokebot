@@ -1,24 +1,27 @@
 import type { PropsWithChildren } from "react";
 import { NavLink } from "react-router-dom";
 import type { LoginResponseDto } from "@karaoke/contracts";
+import { botProfiles, type BotProfile } from "./botProfiles";
 
 type User = LoginResponseDto["user"];
 
 export function AppLayout({
+  profile = botProfiles.mishka,
   queuePath = "/bot/mishka",
   onLogout,
   children
 }: PropsWithChildren<{
   user: User;
+  profile?: BotProfile;
   queuePath?: string;
   onLogout: () => void;
 }>) {
   return (
-    <main className="page-shell">
+    <main className={`page-shell ${profile.themeClassName}`}>
       <header className="app-header">
         <div className="app-header__copy">
           <div className="app-header__eyebrow">Пойте любые песни, кроме плохих</div>
-          <h1 className="app-header__title">MISHKA KARAOKE</h1>
+          <h1 className="app-header__title">{profile.adminTitle}</h1>
         </div>
 
       </header>
