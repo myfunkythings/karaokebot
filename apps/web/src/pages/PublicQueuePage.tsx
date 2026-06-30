@@ -149,6 +149,10 @@ export function PublicQueuePage() {
           <div className="host-console-bar public-queue-topbar">
             <div className="host-console-bar__admin">
               <strong>{activeProfile.title}</strong>
+              <span>
+                Позиции в очереди могут меняться, т.к. система автоматически поднимает наверх тех, кто спел меньше, а
+                уже потом сортирует по времени заявки.
+              </span>
             </div>
           </div>
           <p className="public-queue-empty">Не удалось загрузить очередь. Обновите страницу чуть позже.</p>
@@ -163,6 +167,10 @@ export function PublicQueuePage() {
         <div className="host-console-bar public-queue-topbar">
           <div className="host-console-bar__admin">
             <strong>{activeProfile.title}</strong>
+            <span>
+              Позиции в очереди могут меняться, т.к. система автоматически поднимает наверх тех, кто спел меньше, а уже
+              потом сортирует по времени заявки.
+            </span>
           </div>
 
           <div className="queue-panel__controls public-queue-meta">
