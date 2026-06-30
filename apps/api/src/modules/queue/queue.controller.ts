@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, Query } from "@nestjs/common";
 import { CurrentUser } from "../../common/decorators/current-user.decorator.js";
 import { Roles } from "../../common/decorators/roles.decorator.js";
 import type { AuthenticatedUser } from "../../common/types/authenticated-user.js";
-import { ChannelScopedQueueActionDto, DeferRequestDto, MoveRequestDto } from "./queue.dto.js";
+import { ChannelScopedQueueVersionDto, DeferRequestDto, MoveRequestDto, QueueVersionDto } from "./queue.dto.js";
 import { QueueService } from "./queue.service.js";
 
 @Controller("queue")
@@ -11,26 +11,37 @@ export class QueueController {
 
   @Roles("viewer", "host", "owner")
   @Get("snapshot")
-  async getSnapshot(@Query("channel") channelSlug?: string) {
-    return this.queueService.getSnapshot(channelSlug);
+  async getSnapshot(
+    @Query("channel") channelSlug: string | undefined,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.queueService.getSnapshot(channelSlug, user.id);
   }
 
   @Roles("host", "owner")
   @Post("next")
   async moveToNextPerformer(
-    @Body() body: ChannelScopedQueueActionDto,
+    @Body() body: ChannelScopedQueueVersionDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    return this.queueService.moveToNextPerformer(user.id, body.channelSlug);
+    return this.queueService.moveToNextPerformer(
+      user.id,
+      body.expectedQueueVersion,
+      body.channelSlug
+    );
   }
 
   @Roles("host", "owner")
   @Post("rebalance")
   async rebalanceQueue(
-    @Body() body: ChannelScopedQueueActionDto,
+    @Body() body: ChannelScopedQueueVersionDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    return this.queueService.rebalanceQueue(user.id, body.channelSlug);
+    return this.queueService.rebalanceQueue(
+      user.id,
+      body.expectedQueueVersion,
+      body.channelSlug
+    );
   }
 
   @Roles("host", "owner")
@@ -40,16 +51,22 @@ export class QueueController {
     @Body() body: MoveRequestDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    return this.queueService.moveRequest(requestId, body.position, user.id);
+    return this.queueService.moveRequest(
+      requestId,
+      body.position,
+      user.id,
+      body.expectedQueueVersion
+    );
   }
 
   @Roles("host", "owner")
   @Post(":requestId/call")
   async callRequest(
     @Param("requestId") requestId: string,
+    @Body() body: QueueVersionDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    return this.queueService.callRequest(requestId, user.id);
+    return this.queueService.callRequest(requestId, user.id, body.expectedQueueVersion);
   }
 
   @Roles("host", "owner")
@@ -59,22 +76,39 @@ export class QueueController {
     @Body() body: DeferRequestDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    return this.queueService.deferRequest(requestId, user.id, body.positions);
+    return this.queueService.deferRequest(
+      requestId,
+      user.id,
+      body.expectedQueueVersion,
+      body.positions
+    );
   }
 
   @Roles("host", "owner")
   @Post("guest/:guestId/cancel-future")
   async cancelGuestFutureRequests(
     @Param("guestId") guestId: string,
-    @Body() body: ChannelScopedQueueActionDto,
+    @Body() body: ChannelScopedQueueVersionDto,
     @CurrentUser() user: AuthenticatedUser
   ) {
-    return this.queueService.cancelGuestFutureRequests(guestId, user.id, body.channelSlug);
+    return this.queueService.cancelGuestFutureRequests(
+      guestId,
+      user.id,
+      body.expectedQueueVersion,
+      body.channelSlug
+    );
   }
 
   @Roles("host", "owner")
   @Post("undo")
-  async undo(@CurrentUser() user: AuthenticatedUser) {
-    return this.queueService.undoLastAction(user.id);
+  async undo(
+    @Body() body: ChannelScopedQueueVersionDto,
+    @CurrentUser() user: AuthenticatedUser
+  ) {
+    return this.queueService.undoLastAction(
+      user.id,
+      body.expectedQueueVersion,
+      body.channelSlug
+    );
   }
 }

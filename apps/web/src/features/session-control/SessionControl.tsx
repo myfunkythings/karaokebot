@@ -8,7 +8,7 @@ export function SessionControl({
   activeSession,
   canManage
 }: {
-  activeSession: { id: string; title: string; openedAt: string | null; timezone: string } | null;
+  activeSession: { id: string; title: string; version: number; openedAt: string | null; timezone: string } | null;
   canManage: boolean;
 }) {
   const queryClient = useQueryClient();
@@ -43,7 +43,7 @@ export function SessionControl({
   function handleClose() {
     const confirmed = window.confirm("Закрыть текущую смену? После этого новые заявки приниматься не будут.");
     if (confirmed) {
-      closeMutation.mutate();
+      closeMutation.mutate(activeSession?.version ?? 0);
     }
   }
 

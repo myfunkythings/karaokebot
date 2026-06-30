@@ -22,7 +22,7 @@ export class AuthController {
     @Body() body: LoginDto,
     @Res({ passthrough: true }) response: Response
   ) {
-    const user = await this.authService.validateUser(body.login, body.password);
+    const user = await this.authService.validateUser(body.login, body.password, body.operatorName);
     const frontendUrl = this.configService.getOrThrow<string>("FRONTEND_URL");
     response.cookie(SESSION_COOKIE_NAME, this.sessionTokenService.sign(user), {
       httpOnly: true,

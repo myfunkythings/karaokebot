@@ -13,13 +13,17 @@ export class AuthService {
     private readonly configService: ConfigService
   ) {}
 
-  async validateUser(login: string, password: string): Promise<AuthenticatedUser> {
+  async validateUser(
+    login: string,
+    password: string,
+    operatorName?: string
+  ): Promise<AuthenticatedUser> {
     const sharedAccess = this.getSharedAccessConfig();
     if (login !== sharedAccess.login || password !== sharedAccess.password) {
       throw new UnauthorizedException("Invalid credentials");
     }
 
-    const staffUser = await this.ensureSharedAccessUser();
+    const staffUser = await this.ensureSharedAccessUser(operatorName);
     return this.toAuthenticatedUser(staffUser);
   }
 
@@ -32,7 +36,7 @@ export class AuthService {
     if (
       !staffUser ||
       !staffUser.isActive ||
-      staffUser.login !== sharedAccess.login ||
+      !this.isSharedAccessLogin(staffUser.login, sharedAccess.login) ||
       staffUser.role !== StaffRole.owner
     ) {
       return null;
@@ -52,23 +56,27 @@ export class AuthService {
     };
   }
 
-  private async ensureSharedAccessUser() {
+  private async ensureSharedAccessUser(operatorName?: string) {
     const sharedAccess = this.getSharedAccessConfig();
     const passwordHash = await bcrypt.hash(sharedAccess.password, 10);
     const lastLoginAt = new Date();
+    const displayName = operatorName?.trim() || sharedAccess.displayName;
+    const login = operatorName?.trim()
+      ? `${sharedAccess.login}:${this.toOperatorSlug(operatorName)}`
+      : sharedAccess.login;
 
     return this.prisma.staffUser.upsert({
-      where: { login: sharedAccess.login },
+      where: { login },
       update: {
-        displayName: sharedAccess.displayName,
+        displayName,
         role: StaffRole.owner,
         passwordHash,
         isActive: true,
         lastLoginAt
       },
       create: {
-        login: sharedAccess.login,
-        displayName: sharedAccess.displayName,
+        login,
+        displayName,
         role: StaffRole.owner,
         passwordHash,
         lastLoginAt
@@ -91,5 +99,18 @@ export class AuthService {
       displayName: staffUser.displayName,
       role: staffUser.role
     };
+  }
+
+  private isSharedAccessLogin(login: string, sharedLogin: string) {
+    return login === sharedLogin || login.startsWith(`${sharedLogin}:`);
+  }
+
+  private toOperatorSlug(operatorName: string) {
+    return operatorName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-zа-яё0-9]+/giu, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 48) || "operator";
   }
 }

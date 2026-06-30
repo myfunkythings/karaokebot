@@ -36,7 +36,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   me: () => apiFetch<LoginResponseDto | { user: null }>("/auth/me"),
-  login: (payload: { login: string; password: string }) =>
+  login: (payload: { login: string; password: string; operatorName?: string }) =>
     apiFetch<LoginResponseDto>("/auth/login", {
       method: "POST",
       body: JSON.stringify(payload)
@@ -61,42 +61,45 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload)
     }),
-  closeSession: () =>
+  closeSession: (expectedQueueVersion: number) =>
     apiFetch("/sessions/active/close", {
-      method: "POST"
+      method: "POST",
+      body: JSON.stringify({ expectedQueueVersion })
     }),
-  nextPerformer: (channelSlug?: string) =>
+  nextPerformer: (expectedQueueVersion: number, channelSlug?: string) =>
     apiFetch("/queue/next", {
       method: "POST",
-      body: JSON.stringify({ channelSlug })
+      body: JSON.stringify({ expectedQueueVersion, channelSlug })
     }),
-  callRequest: (requestId: string) =>
+  callRequest: (requestId: string, expectedQueueVersion: number) =>
     apiFetch(`/queue/${requestId}/call`, {
-      method: "POST"
+      method: "POST",
+      body: JSON.stringify({ expectedQueueVersion })
     }),
-  rebalanceQueue: (channelSlug?: string) =>
+  rebalanceQueue: (expectedQueueVersion: number, channelSlug?: string) =>
     apiFetch("/queue/rebalance", {
       method: "POST",
-      body: JSON.stringify({ channelSlug })
+      body: JSON.stringify({ expectedQueueVersion, channelSlug })
     }),
-  moveRequest: (requestId: string, position: number) =>
+  moveRequest: (requestId: string, position: number, expectedQueueVersion: number) =>
     apiFetch(`/queue/${requestId}/move`, {
       method: "POST",
-      body: JSON.stringify({ position })
+      body: JSON.stringify({ position, expectedQueueVersion })
     }),
-  deferRequest: (requestId: string) =>
+  deferRequest: (requestId: string, expectedQueueVersion: number) =>
     apiFetch(`/queue/${requestId}/defer`, {
       method: "POST",
-      body: JSON.stringify({})
+      body: JSON.stringify({ expectedQueueVersion })
     }),
-  cancelGuestFuture: (guestId: string, channelSlug?: string) =>
+  cancelGuestFuture: (guestId: string, expectedQueueVersion: number, channelSlug?: string) =>
     apiFetch(`/queue/guest/${guestId}/cancel-future`, {
       method: "POST",
-      body: JSON.stringify({ channelSlug })
+      body: JSON.stringify({ expectedQueueVersion, channelSlug })
     }),
-  undoLastAction: () =>
+  undoLastAction: (expectedQueueVersion: number, channelSlug?: string) =>
     apiFetch("/queue/undo", {
-      method: "POST"
+      method: "POST",
+      body: JSON.stringify({ expectedQueueVersion, channelSlug })
     }),
   createManualRequest: (payload: {
     displayName: string;

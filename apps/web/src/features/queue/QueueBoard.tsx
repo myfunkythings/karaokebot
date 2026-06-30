@@ -26,32 +26,38 @@ export function QueueBoard({
   };
 
   const nextMutation = useMutation({
-    mutationFn: () => api.nextPerformer(),
+    mutationFn: (expectedQueueVersion: number) =>
+      api.nextPerformer(expectedQueueVersion, snapshot.activeChannelSlug),
     onSuccess: refreshEverything
   });
   const callRequestMutation = useMutation({
-    mutationFn: api.callRequest,
+    mutationFn: ({ requestId, expectedQueueVersion }: { requestId: string; expectedQueueVersion: number }) =>
+      api.callRequest(requestId, expectedQueueVersion),
     onSuccess: refreshEverything
   });
   const rebalanceMutation = useMutation({
-    mutationFn: () => api.rebalanceQueue(),
+    mutationFn: (expectedQueueVersion: number) =>
+      api.rebalanceQueue(expectedQueueVersion, snapshot.activeChannelSlug),
     onSuccess: refreshEverything
   });
   const deferMutation = useMutation({
-    mutationFn: api.deferRequest,
+    mutationFn: ({ requestId, expectedQueueVersion }: { requestId: string; expectedQueueVersion: number }) =>
+      api.deferRequest(requestId, expectedQueueVersion),
     onSuccess: refreshEverything
   });
   const cancelGuestMutation = useMutation({
-    mutationFn: (guestId: string) => api.cancelGuestFuture(guestId),
+    mutationFn: ({ guestId, expectedQueueVersion }: { guestId: string; expectedQueueVersion: number }) =>
+      api.cancelGuestFuture(guestId, expectedQueueVersion, snapshot.activeChannelSlug),
     onSuccess: refreshEverything
   });
   const moveMutation = useMutation({
     mutationFn: ({ requestId, position }: { requestId: string; position: number }) =>
-      api.moveRequest(requestId, position),
+      api.moveRequest(requestId, position, snapshot.queueVersion ?? 0),
     onSuccess: refreshEverything
   });
   const undoMutation = useMutation({
-    mutationFn: api.undoLastAction,
+    mutationFn: (expectedQueueVersion: number) =>
+      api.undoLastAction(expectedQueueVersion, snapshot.activeChannelSlug),
     onSuccess: refreshEverything
   });
   const closeSessionMutation = useMutation({
@@ -66,6 +72,7 @@ export function QueueBoard({
   }, {});
   const manualModeActive = snapshot.queued.some((item) => item.orderMode === "manual_pin");
   const nextRequest = snapshot.queued[0] ?? null;
+  const expectedQueueVersion = snapshot.queueVersion ?? 0;
 
   const filteredRequests = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -109,7 +116,7 @@ export function QueueBoard({
       return;
     }
 
-    callRequestMutation.mutate(requestId);
+    callRequestMutation.mutate({ requestId, expectedQueueVersion });
   }
 
   function handleMoveRequest(requestId: string, position: number) {
@@ -119,7 +126,7 @@ export function QueueBoard({
   function handleCloseSession() {
     const confirmed = window.confirm("Закрыть текущую смену? После этого новые заявки приниматься не будут.");
     if (confirmed) {
-      closeSessionMutation.mutate();
+      closeSessionMutation.mutate(expectedQueueVersion);
     }
   }
 
@@ -157,14 +164,14 @@ export function QueueBoard({
         <div className="shift-control-strip__actions">
           <button
             className="primary-button"
-            onClick={() => nextMutation.mutate()}
+            onClick={() => nextMutation.mutate(expectedQueueVersion)}
             disabled={!canManage || !snapshot.session || (!snapshot.current && !nextRequest) || nextMutation.isPending}
           >
             {nextMutation.isPending ? "Вызываем…" : "Вызвать следующего"}
           </button>
           <button
             className="secondary-button"
-            onClick={() => undoMutation.mutate()}
+            onClick={() => undoMutation.mutate(expectedQueueVersion)}
             disabled={!canManage || undoMutation.isPending}
           >
             {undoMutation.isPending ? "Отменяем…" : "Отменить последнее действие"}
@@ -188,7 +195,7 @@ export function QueueBoard({
           <div className="queue-actions">
             <button
               className={manualModeActive ? "secondary-button" : "ghost-button ghost-button--compact"}
-              onClick={() => rebalanceMutation.mutate()}
+              onClick={() => rebalanceMutation.mutate(expectedQueueVersion)}
               disabled={!canManage || !manualModeActive || rebalanceMutation.isPending}
             >
               {rebalanceMutation.isPending
@@ -252,8 +259,8 @@ export function QueueBoard({
           sungCountByGuestId={sungCountByGuestId}
           onCall={handleCallRequest}
           onMove={handleMoveRequest}
-          onDefer={(requestId) => deferMutation.mutate(requestId)}
-          onCancelGuest={(guestId) => cancelGuestMutation.mutate(guestId)}
+          onDefer={(requestId) => deferMutation.mutate({ requestId, expectedQueueVersion })}
+          onCancelGuest={(guestId) => cancelGuestMutation.mutate({ guestId, expectedQueueVersion })}
         />
       </section>
     </div>

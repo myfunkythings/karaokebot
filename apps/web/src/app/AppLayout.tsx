@@ -5,10 +5,12 @@ import type { LoginResponseDto } from "@karaoke/contracts";
 type User = LoginResponseDto["user"];
 
 export function AppLayout({
+  queuePath = "/bot/main",
   onLogout,
   children
 }: PropsWithChildren<{
   user: User;
+  queuePath?: string;
   onLogout: () => void;
 }>) {
   return (
@@ -26,7 +28,7 @@ export function AppLayout({
       <footer className="app-footer-actions">
         <nav className="app-nav" aria-label="Разделы панели">
           <NavLink
-            to="/"
+            to={queuePath}
             end
             className={({ isActive }) => (isActive ? "app-nav__link app-nav__link--active" : "app-nav__link")}
           >

@@ -191,13 +191,14 @@ export class SongRequestsService {
     return this.prisma.$transaction(async (tx) => {
       const existingRequest = await tx.songRequest.findUnique({
         where: { id: input.requestId },
-        include: { guestProfile: true }
+        include: { guestProfile: true, channel: true }
       });
 
       if (!existingRequest) {
         throw new NotFoundException("Song request not found");
       }
 
+      await this.prisma.acquireSessionLock(existingRequest.sessionId, tx);
       const parsed = parseSongRequest(input.rawText);
       const updatedRequest = await tx.songRequest.update({
         where: { id: input.requestId },
@@ -221,11 +222,14 @@ export class SongRequestsService {
           payloadJson: {
             requestId: existingRequest.id,
             previousRawText: existingRequest.rawText,
-            nextRawText: updatedRequest.rawText
+            nextRawText: updatedRequest.rawText,
+            channelId: existingRequest.channelId,
+            channelSlug: existingRequest.channel.slug
           }
         },
         tx
       );
+      await this.queueService.bumpQueueVersion(existingRequest.sessionId, tx);
 
       return toSongRequestDto(updatedRequest);
     });

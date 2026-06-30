@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { Navigate, createBrowserRouter } from "react-router-dom";
 import { LoginPage } from "../pages/LoginPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { ArchivePage } from "../pages/ArchivePage";
@@ -14,6 +14,10 @@ export const router = createBrowserRouter([
   },
   {
     path: "/",
+    element: <Navigate to="/bot/main" replace />
+  },
+  {
+    path: "/bot/:channelSlug",
     element: (
       <RequireAuth>
         <DashboardPage />

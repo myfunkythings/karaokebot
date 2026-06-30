@@ -134,6 +134,9 @@ export class TelegramService implements OnApplicationBootstrap {
       } else if (text.startsWith("/")) {
         if (text === "/start") {
           replyText = settings.botReplyTemplates.startMessage;
+        } else if (text === "/status") {
+          replyText =
+            await this.songRequestsService.getTelegramGuestStatusSummary(telegramUserId, channel.slug);
         } else {
           replyText = settings.botReplyTemplates.unknownCommand;
         }

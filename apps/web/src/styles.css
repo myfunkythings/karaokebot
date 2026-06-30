@@ -1970,44 +1970,99 @@ button:focus-visible {
   justify-content: flex-end;
 }
 
-.channel-switcher {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  align-items: center;
-  padding: 10px 12px;
-  border: 1px solid #e7eaee;
-  border-radius: 16px;
-  background: var(--bg-surface);
-}
-
-.channel-switcher__button {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  min-height: 34px;
-  padding: 6px 11px;
-  border: 1px solid #dfe5ea;
-  border-radius: 999px;
-  background: #ffffff;
-  color: #465c68;
-  font-size: 13px;
-  line-height: 18px;
-  font-weight: 700;
-}
-
-.channel-switcher__button--active {
-  border-color: #203b47;
-  background: #203b47;
-  color: #ffffff;
-}
-
-.channel-switcher__dot,
 .request-channel-badge__dot {
   width: 8px;
   height: 8px;
   border-radius: 999px;
   flex: 0 0 auto;
+}
+
+.host-console-bar__admin {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #e7eaee;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.host-console-bar__admin span {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.host-console-bar__admin strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.operator-conflict-banner,
+.operator-presence-panel {
+  margin-top: 10px;
+  border: 1px solid #f2d7a5;
+  border-radius: 14px;
+  background: #fff8e8;
+}
+
+.operator-conflict-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  color: #6d4b16;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 700;
+}
+
+.operator-conflict-banner button {
+  border: 0;
+  background: transparent;
+  color: #203b47;
+  font-weight: 800;
+}
+
+.operator-presence-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.operator-presence-panel__label {
+  display: block;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.operator-presence-panel strong {
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.operator-presence-panel ul {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 16px;
+  list-style: none;
 }
 
 .queue-card {
@@ -3993,13 +4048,6 @@ body {
 
   .host-console-bar--single-channel {
     grid-template-columns: minmax(360px, 1fr) auto;
-  }
-
-  .host-console-bar .channel-switcher {
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
   }
 
   .host-console-bar .queue-panel__controls {

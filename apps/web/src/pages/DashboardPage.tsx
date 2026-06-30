@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Navigate, useParams } from "react-router-dom";
 import { api } from "../shared/api/client";
 import { AppLayout } from "../app/AppLayout";
 import { HostPanelPage } from "../features/queue/HostPanelPage";
@@ -13,14 +14,16 @@ const loginPath = `${import.meta.env.BASE_URL}login`;
 export function DashboardPage() {
   const queryClient = useQueryClient();
   const [queueSearchValue, setQueueSearchValue] = useState("");
-  const [selectedChannelSlug, setSelectedChannelSlug] = useState("main");
+  const { channelSlug } = useParams();
+  const activeChannelSlug = channelSlug?.trim();
   const meQuery = useQuery({
     queryKey: ["auth", "me"],
     queryFn: api.me
   });
   const snapshotQuery = useQuery({
-    queryKey: ["queue", "snapshot", selectedChannelSlug],
-    queryFn: () => api.getQueueSnapshot(selectedChannelSlug),
+    queryKey: ["queue", "snapshot", activeChannelSlug],
+    queryFn: () => api.getQueueSnapshot(activeChannelSlug),
+    enabled: Boolean(activeChannelSlug),
     refetchInterval: 5_000,
     retry: import.meta.env.DEV ? false : 3
   });
@@ -48,6 +51,13 @@ export function DashboardPage() {
     ((meQuery.isError && snapshotQuery.isError) || (!user && !snapshot && !isLoading));
   const resolvedUser = devOfflineMode ? mockUser : user;
   const resolvedSnapshot = devOfflineMode ? mockQueueSnapshot : snapshot;
+  const resolvedChannelSlug = devOfflineMode
+    ? mockQueueSnapshot.activeChannelSlug
+    : activeChannelSlug;
+
+  if (!activeChannelSlug && !devOfflineMode) {
+    return <Navigate to="/bot/main" replace />;
+  }
 
   if (isLoading) {
     return <main className="page-shell">Собираем оперативный пульт…</main>;
@@ -58,8 +68,13 @@ export function DashboardPage() {
   }
 
   const canManage = resolvedUser.role === "owner" || resolvedUser.role === "host";
+  const expectedQueueVersion = resolvedSnapshot.queueVersion ?? 0;
   return (
-    <AppLayout user={resolvedUser} onLogout={() => (devOfflineMode ? undefined : logoutMutation.mutate())}>
+    <AppLayout
+      user={resolvedUser}
+      queuePath={`/bot/${resolvedChannelSlug ?? "main"}`}
+      onLogout={() => (devOfflineMode ? undefined : logoutMutation.mutate())}
+    >
       <div className="dashboard-grid dashboard-grid--host">
         <div className="dashboard-column dashboard-column--main">
           <HostPanelPage
@@ -68,12 +83,10 @@ export function DashboardPage() {
             searchValue={queueSearchValue}
             onSearchChange={setQueueSearchValue}
             onClearSearch={() => setQueueSearchValue("")}
-            selectedChannelSlug={selectedChannelSlug}
-            onChannelChange={setSelectedChannelSlug}
           />
         </div>
         <aside className="dashboard-column dashboard-column--side right-sidebar">
-          <ManualRequestForm canManage={canManage} channelSlug={selectedChannelSlug} />
+          <ManualRequestForm canManage={canManage} channelSlug={resolvedSnapshot.activeChannelSlug} />
           <MiniSessionStatus
             activeSession={resolvedSnapshot.session}
             snapshot={resolvedSnapshot}
@@ -83,7 +96,7 @@ export function DashboardPage() {
             canManage={canManage}
             disabled={!resolvedSnapshot.session || closeSessionMutation.isPending}
             pending={closeSessionMutation.isPending}
-            onClose={() => closeSessionMutation.mutate()}
+            onClose={() => closeSessionMutation.mutate(expectedQueueVersion)}
           />
         </aside>
       </div>

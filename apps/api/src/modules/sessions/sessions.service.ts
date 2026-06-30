@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException
 } from "@nestjs/common";
@@ -42,6 +43,7 @@ export class SessionsService {
       id: session.id,
       title: session.title,
       status: session.status,
+      version: session.version,
       openedAt: session.openedAt?.toISOString() ?? null,
       closedAt: session.closedAt?.toISOString() ?? null,
       timezone: session.timezone
@@ -95,7 +97,7 @@ export class SessionsService {
     });
   }
 
-  async closeActiveSession(closedByStaffId: string) {
+  async closeActiveSession(closedByStaffId: string, expectedQueueVersion: number) {
     return this.prisma.$transaction(async (tx) => {
       await this.prisma.acquireGlobalLock("karaoke-active-session", tx);
       const session = await tx.session.findFirst({
@@ -103,6 +105,11 @@ export class SessionsService {
       });
       if (!session) {
         throw new NotFoundException("No active session");
+      }
+      if (session.version !== expectedQueueVersion) {
+        throw new ConflictException(
+          "Очередь уже изменилась на другом устройстве. Обновите экран и повторите действие."
+        );
       }
 
       const now = new Date();
@@ -127,7 +134,10 @@ export class SessionsService {
         where: { id: session.id },
         data: {
           status: SessionStatus.closed,
-          closedAt: now
+          closedAt: now,
+          version: {
+            increment: 1
+          }
         }
       });
 
