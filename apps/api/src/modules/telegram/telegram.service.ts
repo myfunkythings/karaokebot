@@ -14,12 +14,15 @@ import {
   isTelegramCancelConfirmIntent,
   isTelegramCancelRequestIntent,
   isTelegramStatusIntent,
+  isTelegramViewQueueIntent,
   TELEGRAM_ABORT_CANCEL_BUTTON_TEXT,
   TELEGRAM_CANCEL_BUTTON_TEXT,
   TELEGRAM_CONFIRM_CANCEL_BUTTON_TEXT,
-  TELEGRAM_STATUS_BUTTON_TEXT
+  TELEGRAM_STATUS_BUTTON_TEXT,
+  TELEGRAM_VIEW_QUEUE_BUTTON_TEXT
 } from "./telegram-status-intent.js";
 import { TelegramOutboundService } from "./telegram-outbound.service.js";
+import { getTelegramPublicQueueUrl } from "./telegram-public-queue-url.js";
 import { resolveTelegramWebhookUrl } from "./telegram-webhook.js";
 
 type TelegramMessage = {
@@ -39,7 +42,7 @@ type TelegramUpdate = {
   message?: TelegramMessage;
 };
 
-type TelegramKeyboardRow = Array<{ text: string }>;
+type TelegramKeyboardRow = Array<{ text: string; web_app?: { url: string } }>;
 
 @Injectable()
 export class TelegramService implements OnApplicationBootstrap {
@@ -114,13 +117,15 @@ export class TelegramService implements OnApplicationBootstrap {
     try {
       const settings = await this.settingsService.getGlobalSettings();
       let replyText = "";
-      let keyboardRows = this.getDefaultKeyboardRows();
+      let keyboardRows = this.getDefaultKeyboardRows(channel.slug);
       let guestProfileId: string | null = null;
       let linkedSongRequestId: string | null = null;
 
       if (isTelegramStatusIntent(text)) {
         replyText =
           await this.songRequestsService.getTelegramGuestStatusSummary(telegramUserId, channel.slug);
+      } else if (isTelegramViewQueueIntent(text)) {
+        replyText = `Публичная очередь: ${getTelegramPublicQueueUrl(channel.slug)}`;
       } else if (isTelegramCancelRequestIntent(text)) {
         replyText =
           "Точно удалить все твои заявки из очереди? Это действие нельзя отменить из Telegram.\n\nЕсли нажал случайно, выбери «Не удалять».";
@@ -341,9 +346,17 @@ export class TelegramService implements OnApplicationBootstrap {
     ];
   }
 
-  private getDefaultKeyboardRows(): TelegramKeyboardRow[] {
+  private getDefaultKeyboardRows(channelSlug: string): TelegramKeyboardRow[] {
     return [
       [{ text: TELEGRAM_STATUS_BUTTON_TEXT }],
+      [
+        {
+          text: TELEGRAM_VIEW_QUEUE_BUTTON_TEXT,
+          web_app: {
+            url: getTelegramPublicQueueUrl(channelSlug)
+          }
+        }
+      ],
       [{ text: TELEGRAM_CANCEL_BUTTON_TEXT }]
     ];
   }

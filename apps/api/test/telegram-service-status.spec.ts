@@ -100,6 +100,14 @@ describe("TelegramService status text handling", () => {
       "status reply",
       [
         [{ text: "Узнать мою позицию" }],
+        [
+          {
+            text: "Посмотреть очередь",
+            web_app: {
+              url: "https://zapoi.john-doe.ru/"
+            }
+          }
+        ],
         [{ text: "Удалить все мои заявки из очереди" }]
       ]
     );
@@ -153,7 +161,7 @@ describe("TelegramService status text handling", () => {
   });
 
   it("keeps ordinary song messages on the request creation path", async () => {
-    const { service, songRequestsService } = createService();
+    const { service, songRequestsService, telegramOutboundService } = createService();
 
     await service.handleWebhook(makeUpdate("Кино - Пачка сигарет"), "main-secret");
 
@@ -164,5 +172,36 @@ describe("TelegramService status text handling", () => {
       })
     );
     expect(songRequestsService.getTelegramGuestStatusSummary).not.toHaveBeenCalled();
+    expect(telegramOutboundService.sendMessage).toHaveBeenCalledWith(
+      "main",
+      "300",
+      "request accepted",
+      [
+        [{ text: "Узнать мою позицию" }],
+        [
+          {
+            text: "Посмотреть очередь",
+            web_app: {
+              url: "https://calc1.printninjas.ru/karaoke/queue/mishka"
+            }
+          }
+        ],
+        [{ text: "Удалить все мои заявки из очереди" }]
+      ]
+    );
+  });
+
+  it("answers queue button text with the public queue link", async () => {
+    const { service, songRequestsService, telegramOutboundService } = createService();
+
+    await service.handleWebhook(makeUpdate("Посмотреть очередь"), "secondary-secret", "secondary");
+
+    expect(songRequestsService.createTelegramRequest).not.toHaveBeenCalled();
+    expect(telegramOutboundService.sendMessage).toHaveBeenCalledWith(
+      "secondary",
+      "300",
+      "Публичная очередь: https://zapoi.john-doe.ru/",
+      expect.any(Array)
+    );
   });
 });

@@ -2,10 +2,12 @@ import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import {
   TELEGRAM_CANCEL_BUTTON_TEXT,
-  TELEGRAM_STATUS_BUTTON_TEXT
+  TELEGRAM_STATUS_BUTTON_TEXT,
+  TELEGRAM_VIEW_QUEUE_BUTTON_TEXT
 } from "./telegram-status-intent.js";
+import { getTelegramPublicQueueUrl } from "./telegram-public-queue-url.js";
 
-type TelegramKeyboardRow = Array<{ text: string }>;
+type TelegramKeyboardRow = Array<{ text: string; web_app?: { url: string } }>;
 
 @Injectable()
 export class TelegramOutboundService {
@@ -17,7 +19,7 @@ export class TelegramOutboundService {
     channelSlug: string,
     chatId: string,
     text: string,
-    keyboardRows = this.getDefaultKeyboardRows()
+    keyboardRows = this.getDefaultKeyboardRows(channelSlug)
   ) {
     const token = this.getBotToken(channelSlug);
     if (!token || token === "replace-me") {
@@ -62,9 +64,17 @@ export class TelegramOutboundService {
     return channelSlug.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
   }
 
-  private getDefaultKeyboardRows(): TelegramKeyboardRow[] {
+  private getDefaultKeyboardRows(channelSlug: string): TelegramKeyboardRow[] {
     return [
       [{ text: TELEGRAM_STATUS_BUTTON_TEXT }],
+      [
+        {
+          text: TELEGRAM_VIEW_QUEUE_BUTTON_TEXT,
+          web_app: {
+            url: getTelegramPublicQueueUrl(channelSlug)
+          }
+        }
+      ],
       [{ text: TELEGRAM_CANCEL_BUTTON_TEXT }]
     ];
   }

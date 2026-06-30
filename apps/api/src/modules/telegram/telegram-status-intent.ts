@@ -1,4 +1,5 @@
 export const TELEGRAM_STATUS_BUTTON_TEXT = "Узнать мою позицию";
+export const TELEGRAM_VIEW_QUEUE_BUTTON_TEXT = "Посмотреть очередь";
 export const TELEGRAM_CANCEL_BUTTON_TEXT = "Удалить все мои заявки из очереди";
 export const TELEGRAM_CONFIRM_CANCEL_BUTTON_TEXT = "Да, удалить мои заявки";
 export const TELEGRAM_ABORT_CANCEL_BUTTON_TEXT = "Не удалять";
@@ -27,6 +28,11 @@ export function isTelegramStatusIntent(text: string) {
 export function isTelegramCancelRequestIntent(text: string) {
   const normalized = normalizeStatusIntentText(text);
   return normalized === "удалить все мои заявки из очереди";
+}
+
+export function isTelegramViewQueueIntent(text: string) {
+  const normalized = normalizeStatusIntentText(text);
+  return normalized === "посмотреть очередь" || normalized === "/queue";
 }
 
 export function isTelegramCancelConfirmIntent(text: string) {
