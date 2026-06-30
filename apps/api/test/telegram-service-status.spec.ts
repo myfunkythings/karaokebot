@@ -2,9 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import { TelegramService } from "../src/modules/telegram/telegram.service.js";
 
 function createService() {
-  const fetchMock = vi.fn().mockResolvedValue({ ok: true });
-  vi.stubGlobal("fetch", fetchMock);
-
   const configService = {
     get: vi.fn((key: string) => {
       if (key === "TELEGRAM_WEBHOOK_SECRET") {
@@ -55,16 +52,20 @@ function createService() {
     })),
     getActiveChannels: vi.fn().mockResolvedValue([])
   };
+  const telegramOutboundService = {
+    sendMessage: vi.fn().mockResolvedValue(undefined)
+  };
 
   const service = new TelegramService(
     configService as never,
     prisma as never,
     songRequestsService as never,
     settingsService as never,
-    requestChannelsService as never
+    requestChannelsService as never,
+    telegramOutboundService as never
   );
 
-  return { fetchMock, prisma, service, songRequestsService };
+  return { prisma, service, songRequestsService, telegramOutboundService };
 }
 
 function makeUpdate(text: string) {
@@ -84,7 +85,7 @@ function makeUpdate(text: string) {
 
 describe("TelegramService status text handling", () => {
   it("answers 'моя позиция' through the channel status flow instead of creating a song request", async () => {
-    const { fetchMock, service, songRequestsService } = createService();
+    const { service, songRequestsService, telegramOutboundService } = createService();
 
     await service.handleWebhook(makeUpdate("Узнать мою позицию"), "secondary-secret", "secondary");
 
@@ -93,20 +94,19 @@ describe("TelegramService status text handling", () => {
       "secondary"
     );
     expect(songRequestsService.createTelegramRequest).not.toHaveBeenCalled();
-    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual(
-      expect.objectContaining({
-        reply_markup: expect.objectContaining({
-          keyboard: [
-            [{ text: "Узнать мою позицию" }],
-            [{ text: "Удалить все мои заявки из очереди" }]
-          ]
-        })
-      })
+    expect(telegramOutboundService.sendMessage).toHaveBeenCalledWith(
+      "secondary",
+      "300",
+      "status reply",
+      [
+        [{ text: "Узнать мою позицию" }],
+        [{ text: "Удалить все мои заявки из очереди" }]
+      ]
     );
   });
 
   it("asks for confirmation before cancelling queued guest requests", async () => {
-    const { fetchMock, service, songRequestsService } = createService();
+    const { service, songRequestsService, telegramOutboundService } = createService();
 
     await service.handleWebhook(
       makeUpdate("Удалить все мои заявки из очереди"),
@@ -116,16 +116,14 @@ describe("TelegramService status text handling", () => {
 
     expect(songRequestsService.cancelTelegramGuestQueuedRequests).not.toHaveBeenCalled();
     expect(songRequestsService.createTelegramRequest).not.toHaveBeenCalled();
-    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual(
-      expect.objectContaining({
-        text: expect.stringContaining("Точно удалить"),
-        reply_markup: expect.objectContaining({
-          keyboard: [
-            [{ text: "Да, удалить мои заявки" }],
-            [{ text: "Не удалять" }]
-          ]
-        })
-      })
+    expect(telegramOutboundService.sendMessage).toHaveBeenCalledWith(
+      "secondary",
+      "300",
+      expect.stringContaining("Точно удалить"),
+      [
+        [{ text: "Да, удалить мои заявки" }],
+        [{ text: "Не удалять" }]
+      ]
     );
   });
 

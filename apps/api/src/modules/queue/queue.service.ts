@@ -8,6 +8,7 @@ import {
   OrderMode,
   Prisma,
   SongRequestOutcome,
+  SongRequestSource,
   SongRequestStatus
 } from "@prisma/client";
 import type { PublicQueueSnapshotDto, QueueSnapshotDto } from "@karaoke/contracts";
@@ -18,6 +19,7 @@ import { SessionsService } from "../sessions/sessions.service.js";
 import { buildQueuePlan } from "./queue-order.js";
 import { SettingsService } from "../settings/settings.service.js";
 import { RequestChannelsService } from "../request-channels/request-channels.service.js";
+import { TelegramOutboundService } from "../telegram/telegram-outbound.service.js";
 
 type RequestSnapshot = {
   id: string;
@@ -40,7 +42,8 @@ export class QueueService {
     private readonly auditService: AuditService,
     private readonly sessionsService: SessionsService,
     private readonly settingsService: SettingsService,
-    private readonly requestChannelsService: RequestChannelsService
+    private readonly requestChannelsService: RequestChannelsService,
+    private readonly telegramOutboundService: TelegramOutboundService
   ) {}
 
   async getPublicSnapshot(channelSlug?: string | null): Promise<PublicQueueSnapshotDto> {
@@ -438,6 +441,8 @@ export class QueueService {
 
     });
 
+    await this.notifyNextQueuedTelegramGuest(session.id, channel.id, channel.slug);
+
     return this.getSnapshot(channel.slug, actorStaffId);
   }
 
@@ -448,6 +453,7 @@ export class QueueService {
   ) {
     const session = await this.sessionsService.getRequiredActiveSession();
     let changedChannelSlug: string | null = null;
+    let changedChannelId: string | null = null;
 
     await this.prisma.$transaction(async (tx) => {
       await this.prisma.acquireSessionLock(session.id, tx);
@@ -462,6 +468,7 @@ export class QueueService {
         throw new NotFoundException("Queued request not found");
       }
       changedChannelSlug = request.channel.slug;
+      changedChannelId = request.channelId;
       const current = await tx.songRequest.findFirst({
         where: {
           sessionId: session.id,
@@ -520,6 +527,10 @@ export class QueueService {
         tx
       );
     });
+
+    if (changedChannelId && changedChannelSlug) {
+      await this.notifyNextQueuedTelegramGuest(session.id, changedChannelId, changedChannelSlug);
+    }
 
     return this.getSnapshot(changedChannelSlug, actorStaffId);
   }
@@ -836,6 +847,56 @@ export class QueueService {
       update: { lastSeenAt: new Date() },
       create: { staffUserId }
     });
+  }
+
+  private async notifyNextQueuedTelegramGuest(
+    sessionId: string,
+    channelId: string,
+    channelSlug: string
+  ) {
+    const nextQueued = await this.prisma.songRequest.findFirst({
+      where: {
+        sessionId,
+        channelId,
+        status: SongRequestStatus.queued,
+        source: SongRequestSource.telegram
+      },
+      orderBy: [{ queueRank: "asc" }, { requestedAt: "asc" }],
+      select: {
+        id: true,
+        guestProfileId: true,
+        telegramUpdateId: true
+      }
+    });
+
+    if (!nextQueued) {
+      return;
+    }
+
+    const telegramUpdate = await this.prisma.telegramUpdate.findFirst({
+      where: {
+        channelId,
+        OR: [
+          { linkedSongRequestId: nextQueued.id },
+          { guestProfileId: nextQueued.guestProfileId },
+          ...(nextQueued.telegramUpdateId ? [{ telegramUpdateId: nextQueued.telegramUpdateId }] : [])
+        ]
+      },
+      orderBy: { receivedAt: "desc" },
+      select: {
+        telegramChatId: true
+      }
+    });
+
+    if (!telegramUpdate?.telegramChatId) {
+      return;
+    }
+
+    await this.telegramOutboundService.sendMessage(
+      channelSlug,
+      telegramUpdate.telegramChatId,
+      "Ваша песня следующая"
+    );
   }
 
   private async getLastUndoableActionForChannel(

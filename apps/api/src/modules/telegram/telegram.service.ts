@@ -19,6 +19,7 @@ import {
   TELEGRAM_CONFIRM_CANCEL_BUTTON_TEXT,
   TELEGRAM_STATUS_BUTTON_TEXT
 } from "./telegram-status-intent.js";
+import { TelegramOutboundService } from "./telegram-outbound.service.js";
 import { resolveTelegramWebhookUrl } from "./telegram-webhook.js";
 
 type TelegramMessage = {
@@ -49,7 +50,8 @@ export class TelegramService implements OnApplicationBootstrap {
     private readonly prisma: PrismaService,
     private readonly songRequestsService: SongRequestsService,
     private readonly settingsService: SettingsService,
-    private readonly requestChannelsService: RequestChannelsService
+    private readonly requestChannelsService: RequestChannelsService,
+    private readonly telegramOutboundService: TelegramOutboundService
   ) {}
 
   async onApplicationBootstrap() {
@@ -158,7 +160,7 @@ export class TelegramService implements OnApplicationBootstrap {
         linkedSongRequestId = result.status === "accepted" ? result.requestId : null;
       }
 
-      await this.sendMessage(channel.slug, telegramChatId, replyText, keyboardRows);
+      await this.telegramOutboundService.sendMessage(channel.slug, telegramChatId, replyText, keyboardRows);
 
       await this.prisma.telegramUpdate.update({
         where: { id: telegramUpdate.id },
@@ -212,41 +214,6 @@ export class TelegramService implements OnApplicationBootstrap {
       botReplyTemplates: settings.botReplyTemplates,
       antiSpamSeconds: settings.antiSpamSeconds
     };
-  }
-
-  private async sendMessage(
-    channelSlug: string,
-    chatId: string,
-    text: string,
-    keyboardRows = this.getDefaultKeyboardRows()
-  ) {
-    const token = this.getBotToken(channelSlug);
-    if (!token || token === "replace-me") {
-      this.logger.warn(
-        `Telegram bot token is not configured for channel "${channelSlug}"; skipping outbound reply`
-      );
-      return;
-    }
-
-    const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json"
-      },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text,
-        reply_markup: {
-          keyboard: keyboardRows,
-          resize_keyboard: true,
-          one_time_keyboard: false
-        }
-      })
-    });
-
-    if (!response.ok) {
-      this.logger.warn(`Telegram sendMessage failed with ${response.status}`);
-    }
   }
 
   private assertSecret(channelSlug: string, providedSecret?: string) {
@@ -367,17 +334,17 @@ export class TelegramService implements OnApplicationBootstrap {
     return channelSlug.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
   }
 
-  private getDefaultKeyboardRows(): TelegramKeyboardRow[] {
-    return [
-      [{ text: TELEGRAM_STATUS_BUTTON_TEXT }],
-      [{ text: TELEGRAM_CANCEL_BUTTON_TEXT }]
-    ];
-  }
-
   private getCancelConfirmationKeyboardRows(): TelegramKeyboardRow[] {
     return [
       [{ text: TELEGRAM_CONFIRM_CANCEL_BUTTON_TEXT }],
       [{ text: TELEGRAM_ABORT_CANCEL_BUTTON_TEXT }]
+    ];
+  }
+
+  private getDefaultKeyboardRows(): TelegramKeyboardRow[] {
+    return [
+      [{ text: TELEGRAM_STATUS_BUTTON_TEXT }],
+      [{ text: TELEGRAM_CANCEL_BUTTON_TEXT }]
     ];
   }
 }

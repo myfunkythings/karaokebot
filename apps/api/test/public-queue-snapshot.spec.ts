@@ -90,7 +90,8 @@ function createService() {
     {} as never,
     sessionsService as never,
     {} as never,
-    requestChannelsService as never
+    requestChannelsService as never,
+    {} as never
   );
 
   return { prisma, requestChannelsService, service };
