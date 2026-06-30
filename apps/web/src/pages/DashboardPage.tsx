@@ -10,12 +10,21 @@ import { CloseShiftSection } from "../features/session-control/CloseShiftSection
 import { mockQueueSnapshot, mockUser } from "../shared/mock/hostPanelMock";
 
 const loginPath = `${import.meta.env.BASE_URL}login`;
+const adminBotRoutes: Record<string, string> = {
+  mishka: "main",
+  zapoi: "secondary"
+};
+const legacyAdminBotRoutes: Record<string, string> = {
+  main: "mishka",
+  secondary: "zapoi"
+};
 
 export function DashboardPage() {
   const queryClient = useQueryClient();
   const [queueSearchValue, setQueueSearchValue] = useState("");
   const { channelSlug } = useParams();
-  const activeChannelSlug = channelSlug?.trim();
+  const routeBotSlug = channelSlug?.trim();
+  const activeChannelSlug = routeBotSlug ? adminBotRoutes[routeBotSlug] : undefined;
   const meQuery = useQuery({
     queryKey: ["auth", "me"],
     queryFn: api.me
@@ -51,12 +60,14 @@ export function DashboardPage() {
     ((meQuery.isError && snapshotQuery.isError) || (!user && !snapshot && !isLoading));
   const resolvedUser = devOfflineMode ? mockUser : user;
   const resolvedSnapshot = devOfflineMode ? mockQueueSnapshot : snapshot;
-  const resolvedChannelSlug = devOfflineMode
-    ? mockQueueSnapshot.activeChannelSlug
-    : activeChannelSlug;
+  const resolvedRouteBotSlug = devOfflineMode ? "mishka" : routeBotSlug;
+
+  if (routeBotSlug && legacyAdminBotRoutes[routeBotSlug] && !devOfflineMode) {
+    return <Navigate to={`/bot/${legacyAdminBotRoutes[routeBotSlug]}`} replace />;
+  }
 
   if (!activeChannelSlug && !devOfflineMode) {
-    return <Navigate to="/bot/main" replace />;
+    return <Navigate to="/bot/mishka" replace />;
   }
 
   if (isLoading) {
@@ -72,7 +83,7 @@ export function DashboardPage() {
   return (
     <AppLayout
       user={resolvedUser}
-      queuePath={`/bot/${resolvedChannelSlug ?? "main"}`}
+      queuePath={`/bot/${resolvedRouteBotSlug ?? "mishka"}`}
       onLogout={() => (devOfflineMode ? undefined : logoutMutation.mutate())}
     >
       <div className="dashboard-grid dashboard-grid--host">

@@ -41,7 +41,7 @@ Monorepo with a NestJS API, React/Vite admin panel, PostgreSQL/Prisma data layer
 
    Song requests can be split by request channels without adding another admin login. The default
    seed creates `main` (`Основной бот`) and `secondary` (`Второй бот`). Their admin panels are
-   intentionally separate URLs, not tabs inside one panel: `/bot/main` and `/bot/secondary`. The
+   intentionally separate URLs, not tabs inside one panel: `/bot/mishka` and `/bot/zapoi`. The
    second Telegram bot is optional until created; configure it later with
    `TELEGRAM_SECONDARY_BOT_TOKEN` and `TELEGRAM_SECONDARY_WEBHOOK_SECRET`.
 

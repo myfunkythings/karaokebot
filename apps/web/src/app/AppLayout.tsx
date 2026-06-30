@@ -5,7 +5,7 @@ import type { LoginResponseDto } from "@karaoke/contracts";
 type User = LoginResponseDto["user"];
 
 export function AppLayout({
-  queuePath = "/bot/main",
+  queuePath = "/bot/mishka",
   onLogout,
   children
 }: PropsWithChildren<{

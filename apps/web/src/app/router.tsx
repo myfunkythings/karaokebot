@@ -14,7 +14,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/",
-    element: <Navigate to="/bot/main" replace />
+    element: <Navigate to="/bot/mishka" replace />
   },
   {
     path: "/bot/:channelSlug",
