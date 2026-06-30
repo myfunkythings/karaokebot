@@ -20,38 +20,43 @@ const statusCommands = new Set([
   "мой статус"
 ]);
 
-export function isTelegramStatusIntent(text: string) {
+export function isTelegramStatusIntent(text: string, customTexts: string[] = []) {
   const normalized = normalizeStatusIntentText(text);
-  return statusCommands.has(normalized);
+  return statusCommands.has(normalized) || normalizedTexts(customTexts).has(normalized);
 }
 
-export function isTelegramCancelRequestIntent(text: string) {
+export function isTelegramCancelRequestIntent(text: string, customTexts: string[] = []) {
   const normalized = normalizeStatusIntentText(text);
-  return normalized === "удалить все мои заявки из очереди";
+  return normalized === "удалить все мои заявки из очереди" || normalizedTexts(customTexts).has(normalized);
 }
 
-export function isTelegramViewQueueIntent(text: string) {
+export function isTelegramViewQueueIntent(text: string, customTexts: string[] = []) {
   const normalized = normalizeStatusIntentText(text);
-  return normalized === "посмотреть очередь" || normalized === "/queue";
+  return normalized === "посмотреть очередь" || normalized === "/queue" || normalizedTexts(customTexts).has(normalized);
 }
 
-export function isTelegramCancelConfirmIntent(text: string) {
+export function isTelegramCancelConfirmIntent(text: string, customTexts: string[] = []) {
   const normalized = normalizeStatusIntentText(text);
   return (
     normalized === "да, удалить мои заявки" ||
     normalized === "/cancel" ||
     normalized === "/delete_my_requests" ||
-    normalized === "/удалить_мои_заявки"
+    normalized === "/удалить_мои_заявки" ||
+    normalizedTexts(customTexts).has(normalized)
   );
 }
 
-export function isTelegramCancelAbortIntent(text: string) {
+export function isTelegramCancelAbortIntent(text: string, customTexts: string[] = []) {
   const normalized = normalizeStatusIntentText(text);
-  return normalized === "не удалять";
+  return normalized === "не удалять" || normalizedTexts(customTexts).has(normalized);
 }
 
 function normalizeStatusIntentText(text: string) {
   const trimmed = text.trim().toLowerCase().replace(/\s+/g, " ");
   const commandWithoutBotMention = trimmed.replace(/^\/([^@\s]+)@[a-z0-9_]+$/i, "/$1");
   return commandWithoutBotMention;
+}
+
+function normalizedTexts(texts: string[]) {
+  return new Set(texts.filter(Boolean).map(normalizeStatusIntentText));
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { TelegramService } from "../src/modules/telegram/telegram.service.js";
+import { DEFAULT_SETTINGS } from "../src/modules/settings/settings.constants.js";
 
 function createService() {
   const configService = {
@@ -38,9 +39,20 @@ function createService() {
   };
   const settingsService = {
     getGlobalSettings: vi.fn().mockResolvedValue({
+      ...DEFAULT_SETTINGS,
       botReplyTemplates: {
+        ...DEFAULT_SETTINGS.botReplyTemplates,
         startMessage: "start",
-        unknownCommand: "unknown"
+        unknownCommand: "unknown",
+        telegramStatusButtonText: "Позиция",
+        telegramViewQueueButtonText: "Открыть очередь",
+        telegramCancelButtonText: "Стереть мои заявки",
+        telegramCancelConfirmButtonText: "Да, стереть",
+        telegramCancelAbortButtonText: "Оставить",
+        telegramViewQueueReplyTemplate: "Очередь тут: {{url}}",
+        telegramCancelConfirmationMessage: "Точно стереть заявки?",
+        telegramCancelAbortMessage: "Ок, оставил.",
+        telegramNextSongNotification: "Скоро твой номер"
       }
     })
   };
@@ -87,7 +99,7 @@ describe("TelegramService status text handling", () => {
   it("answers 'моя позиция' through the channel status flow instead of creating a song request", async () => {
     const { service, songRequestsService, telegramOutboundService } = createService();
 
-    await service.handleWebhook(makeUpdate("Узнать мою позицию"), "secondary-secret", "secondary");
+    await service.handleWebhook(makeUpdate("Позиция"), "secondary-secret", "secondary");
 
     expect(songRequestsService.getTelegramGuestStatusSummary).toHaveBeenCalledWith(
       "400",
@@ -99,16 +111,16 @@ describe("TelegramService status text handling", () => {
       "300",
       "status reply",
       [
-        [{ text: "Узнать мою позицию" }],
+        [{ text: "Позиция" }],
         [
           {
-            text: "Посмотреть очередь",
+            text: "Открыть очередь",
             web_app: {
               url: "https://zapoi.john-doe.ru/"
             }
           }
         ],
-        [{ text: "Удалить все мои заявки из очереди" }]
+        [{ text: "Стереть мои заявки" }]
       ]
     );
   });
@@ -117,7 +129,7 @@ describe("TelegramService status text handling", () => {
     const { service, songRequestsService, telegramOutboundService } = createService();
 
     await service.handleWebhook(
-      makeUpdate("Удалить все мои заявки из очереди"),
+      makeUpdate("Стереть мои заявки"),
       "secondary-secret",
       "secondary"
     );
@@ -127,10 +139,10 @@ describe("TelegramService status text handling", () => {
     expect(telegramOutboundService.sendMessage).toHaveBeenCalledWith(
       "secondary",
       "300",
-      expect.stringContaining("Точно удалить"),
+      "Точно стереть заявки?",
       [
-        [{ text: "Да, удалить мои заявки" }],
-        [{ text: "Не удалять" }]
+        [{ text: "Да, стереть" }],
+        [{ text: "Оставить" }]
       ]
     );
   });
@@ -139,7 +151,7 @@ describe("TelegramService status text handling", () => {
     const { service, songRequestsService } = createService();
 
     await service.handleWebhook(
-      makeUpdate("Да, удалить мои заявки"),
+      makeUpdate("Да, стереть"),
       "secondary-secret",
       "secondary"
     );
@@ -154,7 +166,7 @@ describe("TelegramService status text handling", () => {
   it("keeps queued guest requests when cancellation is aborted", async () => {
     const { service, songRequestsService } = createService();
 
-    await service.handleWebhook(makeUpdate("Не удалять"), "secondary-secret", "secondary");
+    await service.handleWebhook(makeUpdate("Оставить"), "secondary-secret", "secondary");
 
     expect(songRequestsService.cancelTelegramGuestQueuedRequests).not.toHaveBeenCalled();
     expect(songRequestsService.createTelegramRequest).not.toHaveBeenCalled();
@@ -177,16 +189,16 @@ describe("TelegramService status text handling", () => {
       "300",
       "request accepted",
       [
-        [{ text: "Узнать мою позицию" }],
+        [{ text: "Позиция" }],
         [
           {
-            text: "Посмотреть очередь",
+            text: "Открыть очередь",
             web_app: {
               url: "https://calc1.printninjas.ru/karaoke/queue/mishka"
             }
           }
         ],
-        [{ text: "Удалить все мои заявки из очереди" }]
+        [{ text: "Стереть мои заявки" }]
       ]
     );
   });
@@ -194,13 +206,13 @@ describe("TelegramService status text handling", () => {
   it("answers queue button text with the public queue link", async () => {
     const { service, songRequestsService, telegramOutboundService } = createService();
 
-    await service.handleWebhook(makeUpdate("Посмотреть очередь"), "secondary-secret", "secondary");
+    await service.handleWebhook(makeUpdate("Открыть очередь"), "secondary-secret", "secondary");
 
     expect(songRequestsService.createTelegramRequest).not.toHaveBeenCalled();
     expect(telegramOutboundService.sendMessage).toHaveBeenCalledWith(
       "secondary",
       "300",
-      "Публичная очередь: https://zapoi.john-doe.ru/",
+      "Очередь тут: https://zapoi.john-doe.ru/",
       expect.any(Array)
     );
   });

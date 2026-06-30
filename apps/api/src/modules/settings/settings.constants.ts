@@ -34,7 +34,17 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
     fallbackStatusQueuedSummary:
       "🎶 Ваша заявка принята!\n\n👉 В очереди приоритет у тех, кто ещё не пел, потом у тех, кто спел меньше песен, и только потом учитывается время заявки. Так что система старается, чтобы все успели спеть.\n\n⏳ {{queue_tail}}",
     fallbackStatusQueuedNoAhead: "Прямо сейчас активных заявок перед вами нет.",
-    fallbackStatusQueuedAheadTemplate: "Перед вами сейчас примерно {{before}} заявок."
+    fallbackStatusQueuedAheadTemplate: "Перед вами сейчас примерно {{before}} заявок.",
+    telegramStatusButtonText: "Узнать мою позицию",
+    telegramViewQueueButtonText: "Посмотреть очередь",
+    telegramCancelButtonText: "Удалить все мои заявки из очереди",
+    telegramCancelConfirmButtonText: "Да, удалить мои заявки",
+    telegramCancelAbortButtonText: "Не удалять",
+    telegramViewQueueReplyTemplate: "Публичная очередь: {{url}}",
+    telegramCancelConfirmationMessage:
+      "Точно удалить все твои заявки из очереди? Это действие нельзя отменить из Telegram.\n\nЕсли нажал случайно, выбери «Не удалять».",
+    telegramCancelAbortMessage: "Ок, заявки оставил в очереди.",
+    telegramNextSongNotification: "Ваша песня следующая"
   },
   uiLabels: {
     next: "Следующий исполнитель",

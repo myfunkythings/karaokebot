@@ -71,6 +71,33 @@ class BotReplyTemplatesDto {
 
   @IsString()
   fallbackStatusQueuedAheadTemplate!: string;
+
+  @IsString()
+  telegramStatusButtonText!: string;
+
+  @IsString()
+  telegramViewQueueButtonText!: string;
+
+  @IsString()
+  telegramCancelButtonText!: string;
+
+  @IsString()
+  telegramCancelConfirmButtonText!: string;
+
+  @IsString()
+  telegramCancelAbortButtonText!: string;
+
+  @IsString()
+  telegramViewQueueReplyTemplate!: string;
+
+  @IsString()
+  telegramCancelConfirmationMessage!: string;
+
+  @IsString()
+  telegramCancelAbortMessage!: string;
+
+  @IsString()
+  telegramNextSongNotification!: string;
 }
 
 export class UpdateSettingsDto {

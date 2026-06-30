@@ -1,10 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
-import {
-  TELEGRAM_CANCEL_BUTTON_TEXT,
-  TELEGRAM_STATUS_BUTTON_TEXT,
-  TELEGRAM_VIEW_QUEUE_BUTTON_TEXT
-} from "./telegram-status-intent.js";
+import type { GlobalSettings } from "@karaoke/contracts";
+import { SettingsService } from "../settings/settings.service.js";
 import { getTelegramPublicQueueUrl } from "./telegram-public-queue-url.js";
 
 type TelegramKeyboardRow = Array<{ text: string; web_app?: { url: string } }>;
@@ -13,14 +10,19 @@ type TelegramKeyboardRow = Array<{ text: string; web_app?: { url: string } }>;
 export class TelegramOutboundService {
   private readonly logger = new Logger(TelegramOutboundService.name);
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly settingsService: SettingsService
+  ) {}
 
   async sendMessage(
     channelSlug: string,
     chatId: string,
     text: string,
-    keyboardRows = this.getDefaultKeyboardRows(channelSlug)
+    keyboardRows?: TelegramKeyboardRow[]
   ) {
+    const resolvedKeyboardRows =
+      keyboardRows ?? this.getDefaultKeyboardRows(channelSlug, await this.settingsService.getGlobalSettings());
     const token = this.getBotToken(channelSlug);
     if (!token || token === "replace-me") {
       this.logger.warn(
@@ -38,7 +40,7 @@ export class TelegramOutboundService {
         chat_id: chatId,
         text,
         reply_markup: {
-          keyboard: keyboardRows,
+          keyboard: resolvedKeyboardRows,
           resize_keyboard: true,
           one_time_keyboard: false
         }
@@ -64,18 +66,21 @@ export class TelegramOutboundService {
     return channelSlug.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
   }
 
-  private getDefaultKeyboardRows(channelSlug: string): TelegramKeyboardRow[] {
+  private getDefaultKeyboardRows(
+    channelSlug: string,
+    settings: GlobalSettings
+  ): TelegramKeyboardRow[] {
     return [
-      [{ text: TELEGRAM_STATUS_BUTTON_TEXT }],
+      [{ text: settings.botReplyTemplates.telegramStatusButtonText }],
       [
         {
-          text: TELEGRAM_VIEW_QUEUE_BUTTON_TEXT,
+          text: settings.botReplyTemplates.telegramViewQueueButtonText,
           web_app: {
             url: getTelegramPublicQueueUrl(channelSlug)
           }
         }
       ],
-      [{ text: TELEGRAM_CANCEL_BUTTON_TEXT }]
+      [{ text: settings.botReplyTemplates.telegramCancelButtonText }]
     ];
   }
 }

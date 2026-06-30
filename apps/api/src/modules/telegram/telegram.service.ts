@@ -14,12 +14,7 @@ import {
   isTelegramCancelConfirmIntent,
   isTelegramCancelRequestIntent,
   isTelegramStatusIntent,
-  isTelegramViewQueueIntent,
-  TELEGRAM_ABORT_CANCEL_BUTTON_TEXT,
-  TELEGRAM_CANCEL_BUTTON_TEXT,
-  TELEGRAM_CONFIRM_CANCEL_BUTTON_TEXT,
-  TELEGRAM_STATUS_BUTTON_TEXT,
-  TELEGRAM_VIEW_QUEUE_BUTTON_TEXT
+  isTelegramViewQueueIntent
 } from "./telegram-status-intent.js";
 import { TelegramOutboundService } from "./telegram-outbound.service.js";
 import { getTelegramPublicQueueUrl } from "./telegram-public-queue-url.js";
@@ -117,27 +112,28 @@ export class TelegramService implements OnApplicationBootstrap {
     try {
       const settings = await this.settingsService.getGlobalSettings();
       let replyText = "";
-      let keyboardRows = this.getDefaultKeyboardRows(channel.slug);
+      let keyboardRows = this.getDefaultKeyboardRows(channel.slug, settings);
       let guestProfileId: string | null = null;
       let linkedSongRequestId: string | null = null;
 
-      if (isTelegramStatusIntent(text)) {
+      if (isTelegramStatusIntent(text, [settings.botReplyTemplates.telegramStatusButtonText])) {
         replyText =
           await this.songRequestsService.getTelegramGuestStatusSummary(telegramUserId, channel.slug);
-      } else if (isTelegramViewQueueIntent(text)) {
-        replyText = `Публичная очередь: ${getTelegramPublicQueueUrl(channel.slug)}`;
-      } else if (isTelegramCancelRequestIntent(text)) {
-        replyText =
-          "Точно удалить все твои заявки из очереди? Это действие нельзя отменить из Telegram.\n\nЕсли нажал случайно, выбери «Не удалять».";
-        keyboardRows = this.getCancelConfirmationKeyboardRows();
-      } else if (isTelegramCancelConfirmIntent(text)) {
+      } else if (isTelegramViewQueueIntent(text, [settings.botReplyTemplates.telegramViewQueueButtonText])) {
+        replyText = this.formatTemplate(settings.botReplyTemplates.telegramViewQueueReplyTemplate, {
+          url: getTelegramPublicQueueUrl(channel.slug)
+        });
+      } else if (isTelegramCancelRequestIntent(text, [settings.botReplyTemplates.telegramCancelButtonText])) {
+        replyText = settings.botReplyTemplates.telegramCancelConfirmationMessage;
+        keyboardRows = this.getCancelConfirmationKeyboardRows(settings);
+      } else if (isTelegramCancelConfirmIntent(text, [settings.botReplyTemplates.telegramCancelConfirmButtonText])) {
         replyText =
           await this.songRequestsService.cancelTelegramGuestQueuedRequests(
             telegramUserId,
             channel.slug
           );
-      } else if (isTelegramCancelAbortIntent(text)) {
-        replyText = "Ок, заявки оставил в очереди.";
+      } else if (isTelegramCancelAbortIntent(text, [settings.botReplyTemplates.telegramCancelAbortButtonText])) {
+        replyText = settings.botReplyTemplates.telegramCancelAbortMessage;
       } else if (text.startsWith("/")) {
         if (text === "/start") {
           replyText = settings.botReplyTemplates.startMessage;
@@ -339,25 +335,37 @@ export class TelegramService implements OnApplicationBootstrap {
     return channelSlug.toUpperCase().replace(/[^A-Z0-9]+/g, "_");
   }
 
-  private getCancelConfirmationKeyboardRows(): TelegramKeyboardRow[] {
+  private getCancelConfirmationKeyboardRows(
+    settings: Awaited<ReturnType<SettingsService["getGlobalSettings"]>>
+  ): TelegramKeyboardRow[] {
     return [
-      [{ text: TELEGRAM_CONFIRM_CANCEL_BUTTON_TEXT }],
-      [{ text: TELEGRAM_ABORT_CANCEL_BUTTON_TEXT }]
+      [{ text: settings.botReplyTemplates.telegramCancelConfirmButtonText }],
+      [{ text: settings.botReplyTemplates.telegramCancelAbortButtonText }]
     ];
   }
 
-  private getDefaultKeyboardRows(channelSlug: string): TelegramKeyboardRow[] {
+  private getDefaultKeyboardRows(
+    channelSlug: string,
+    settings: Awaited<ReturnType<SettingsService["getGlobalSettings"]>>
+  ): TelegramKeyboardRow[] {
     return [
-      [{ text: TELEGRAM_STATUS_BUTTON_TEXT }],
+      [{ text: settings.botReplyTemplates.telegramStatusButtonText }],
       [
         {
-          text: TELEGRAM_VIEW_QUEUE_BUTTON_TEXT,
+          text: settings.botReplyTemplates.telegramViewQueueButtonText,
           web_app: {
             url: getTelegramPublicQueueUrl(channelSlug)
           }
         }
       ],
-      [{ text: TELEGRAM_CANCEL_BUTTON_TEXT }]
+      [{ text: settings.botReplyTemplates.telegramCancelButtonText }]
     ];
+  }
+
+  private formatTemplate(template: string, values: Record<string, string>) {
+    return Object.entries(values).reduce(
+      (text, [key, value]) => text.replaceAll(`{{${key}}}`, value),
+      template
+    );
   }
 }

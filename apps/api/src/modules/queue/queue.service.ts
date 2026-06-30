@@ -892,10 +892,11 @@ export class QueueService {
       return;
     }
 
+    const settings = await this.settingsService.getGlobalSettings();
     await this.telegramOutboundService.sendMessage(
       channelSlug,
       telegramUpdate.telegramChatId,
-      "Ваша песня следующая"
+      settings.botReplyTemplates.telegramNextSongNotification
     );
   }
 

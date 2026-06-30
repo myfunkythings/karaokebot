@@ -45,6 +45,27 @@ const botReplyFields: Array<{
   {
     key: "fallbackStatusQueuedAheadTemplate",
     label: "Fallback: перед пользователем есть очередь (`{{before}}`)"
+  },
+  { key: "telegramStatusButtonText", label: "Telegram-кнопка: узнать позицию" },
+  { key: "telegramViewQueueButtonText", label: "Telegram-кнопка: посмотреть очередь" },
+  { key: "telegramCancelButtonText", label: "Telegram-кнопка: удалить заявки" },
+  { key: "telegramCancelConfirmButtonText", label: "Telegram-кнопка: подтвердить удаление" },
+  { key: "telegramCancelAbortButtonText", label: "Telegram-кнопка: не удалять" },
+  {
+    key: "telegramViewQueueReplyTemplate",
+    label: "Telegram-ответ со ссылкой на очередь (`{{url}}`)"
+  },
+  {
+    key: "telegramCancelConfirmationMessage",
+    label: "Telegram-ответ: подтверждение удаления"
+  },
+  {
+    key: "telegramCancelAbortMessage",
+    label: "Telegram-ответ: отмена удаления"
+  },
+  {
+    key: "telegramNextSongNotification",
+    label: "Telegram-уведомление: песня следующая"
   }
 ];
 

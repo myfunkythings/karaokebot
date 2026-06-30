@@ -48,6 +48,15 @@ export type BotReplyTemplates = {
   fallbackStatusQueuedSummary: string;
   fallbackStatusQueuedNoAhead: string;
   fallbackStatusQueuedAheadTemplate: string;
+  telegramStatusButtonText: string;
+  telegramViewQueueButtonText: string;
+  telegramCancelButtonText: string;
+  telegramCancelConfirmButtonText: string;
+  telegramCancelAbortButtonText: string;
+  telegramViewQueueReplyTemplate: string;
+  telegramCancelConfirmationMessage: string;
+  telegramCancelAbortMessage: string;
+  telegramNextSongNotification: string;
 };
 
 export type GlobalSettings = {

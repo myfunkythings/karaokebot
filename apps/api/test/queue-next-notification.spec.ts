@@ -5,6 +5,7 @@ import {
   SongRequestStatus
 } from "@prisma/client";
 import { QueueService } from "../src/modules/queue/queue.service.js";
+import { DEFAULT_SETTINGS } from "../src/modules/settings/settings.constants.js";
 
 function createQueueService() {
   const session = { id: "session-1", version: 7 };
@@ -69,6 +70,15 @@ function createQueueService() {
   const requestChannelsService = {
     getRequiredChannelBySlug: vi.fn().mockResolvedValue(channel)
   };
+  const settingsService = {
+    getGlobalSettings: vi.fn().mockResolvedValue({
+      ...DEFAULT_SETTINGS,
+      botReplyTemplates: {
+        ...DEFAULT_SETTINGS.botReplyTemplates,
+        telegramNextSongNotification: "Сейчас началась песня перед вашей"
+      }
+    })
+  };
   const telegramOutboundService = {
     sendMessage: vi.fn().mockResolvedValue(undefined)
   };
@@ -77,7 +87,7 @@ function createQueueService() {
     prisma as never,
     auditService as never,
     sessionsService as never,
-    {} as never,
+    settingsService as never,
     requestChannelsService as never,
     telegramOutboundService as never
   );
@@ -89,6 +99,7 @@ function createQueueService() {
     firstStillQueued,
     prisma,
     service,
+    settingsService,
     telegramOutboundService
   };
 }
@@ -150,12 +161,21 @@ function createCallRequestService() {
   const telegramOutboundService = {
     sendMessage: vi.fn().mockResolvedValue(undefined)
   };
+  const settingsService = {
+    getGlobalSettings: vi.fn().mockResolvedValue({
+      ...DEFAULT_SETTINGS,
+      botReplyTemplates: {
+        ...DEFAULT_SETTINGS.botReplyTemplates,
+        telegramNextSongNotification: "Сейчас началась песня перед вашей"
+      }
+    })
+  };
 
   const service = new QueueService(
     prisma as never,
     { recordAction: vi.fn().mockResolvedValue(undefined) } as never,
     { getRequiredActiveSession: vi.fn().mockResolvedValue(session) } as never,
-    {} as never,
+    settingsService as never,
     {} as never,
     telegramOutboundService as never
   );
@@ -203,7 +223,7 @@ describe("QueueService next song Telegram notification", () => {
     expect(telegramOutboundService.sendMessage).toHaveBeenCalledWith(
       "secondary",
       "chat-after-next",
-      "Ваша песня следующая"
+      "Сейчас началась песня перед вашей"
     );
   });
 
@@ -215,7 +235,7 @@ describe("QueueService next song Telegram notification", () => {
     expect(telegramOutboundService.sendMessage).toHaveBeenCalledWith(
       "main",
       "chat-next-after-call",
-      "Ваша песня следующая"
+      "Сейчас началась песня перед вашей"
     );
   });
 });
