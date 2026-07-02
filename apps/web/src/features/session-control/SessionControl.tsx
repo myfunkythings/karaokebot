@@ -41,7 +41,9 @@ export function SessionControl({
   }
 
   function handleClose() {
-    const confirmed = window.confirm("Закрыть текущую смену? После этого новые заявки приниматься не будут.");
+    const confirmed = window.confirm(
+      "Закрыть текущую смену? После этого новые заявки принимать нельзя, а текущая очередь перестанет расти."
+    );
     if (confirmed) {
       closeMutation.mutate(activeSession?.version ?? 0);
     }

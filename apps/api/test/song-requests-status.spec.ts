@@ -26,6 +26,9 @@ function createService({
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce(activeCurrent),
       findMany: vi.fn().mockResolvedValue(queuedRequests)
+    },
+    sessionGuestStat: {
+      findMany: vi.fn().mockResolvedValue([])
     }
   };
   const sessionsService = {
@@ -57,7 +60,7 @@ function createService({
 describe("SongRequestsService.getTelegramGuestStatusSummary", () => {
   it("lists all queued songs for the guest with positions and approximate tracks ahead", async () => {
     const { service } = createService({
-      activeCurrent: { id: "current-1" },
+      activeCurrent: { id: "current-1", guestProfileId: "guest-3" },
       queuedRequests: [
         {
           id: "request-ahead-1",
@@ -88,8 +91,8 @@ describe("SongRequestsService.getTelegramGuestStatusSummary", () => {
 
     const message = await service.getTelegramGuestStatusSummary("400", "secondary");
 
-    expect(message).toContain("1. Guest song 1 — позиция в очереди: 2; примерно через 2 трека.");
-    expect(message).toContain("2. Guest song 2 — позиция в очереди: 4; примерно через 4 трека.");
+    expect(message).toContain("1. Guest song 1 — примерно через 2 трека.");
+    expect(message).toContain("2. Guest song 2 — примерно через 3 трека.");
   });
 
   it("explains when the guest is next", async () => {
@@ -190,5 +193,120 @@ describe("SongRequestsService.cancelTelegramGuestQueuedRequests", () => {
     );
     expect(message).toContain("Удалил из очереди 2 заявки");
     expect(message).toContain("2. Guest raw 2");
+  });
+});
+
+describe("SongRequestsService.createTelegramRequest", () => {
+  it("renders the accepted request template with forecasted tracks ahead", async () => {
+    const tx = {
+      songRequest: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({
+          id: "request-1",
+          rawText: "Кино - Пачка сигарет",
+          title: "Пачка сигарет"
+        }),
+        findUnique: vi.fn().mockResolvedValue({
+          queueRank: 3,
+          title: "Пачка сигарет",
+          rawText: "Кино - Пачка сигарет"
+        }),
+        findMany: vi.fn().mockResolvedValue([
+          {
+            id: "request-ahead-1",
+            guestProfileId: "guest-2",
+            queueRank: 1,
+            title: "Ahead",
+            rawText: "Ahead",
+            requestedAt: new Date("2026-06-25T18:00:00.000Z"),
+            orderMode: "auto",
+            manualRank: null
+          },
+          {
+            id: "request-ahead-2",
+            guestProfileId: "guest-3",
+            queueRank: 2,
+            title: "Ahead 2",
+            rawText: "Ahead 2",
+            requestedAt: new Date("2026-06-25T18:01:00.000Z"),
+            orderMode: "auto",
+            manualRank: null
+          },
+          {
+            id: "request-1",
+            guestProfileId: "guest-1",
+            queueRank: 3,
+            title: "Пачка сигарет",
+            rawText: "Кино - Пачка сигарет",
+            requestedAt: new Date("2026-06-25T18:02:00.000Z"),
+            orderMode: "auto",
+            manualRank: null
+          }
+        ])
+      },
+      sessionGuestStat: {
+        findMany: vi.fn().mockResolvedValue([])
+      }
+    };
+    const prisma = {
+      $transaction: vi.fn((callback: (txArg: typeof tx) => Promise<unknown>) =>
+        callback(tx)
+      ),
+      acquireSessionLock: vi.fn().mockResolvedValue(undefined)
+    };
+    const queueService = {
+      refreshSessionDerivedState: vi.fn().mockResolvedValue(undefined)
+    };
+    const auditService = {
+      recordAction: vi.fn().mockResolvedValue(undefined)
+    };
+    const service = new SongRequestsService(
+      prisma as never,
+      {
+        upsertTelegramGuest: vi.fn().mockResolvedValue({
+          id: "guest-1"
+        })
+      } as never,
+      { getActiveSession: vi.fn().mockResolvedValue({ id: "session-1" }) } as never,
+      queueService as never,
+      {
+        getGlobalSettings: vi.fn().mockResolvedValue({
+          ...DEFAULT_SETTINGS,
+          botReplyTemplates: {
+            ...DEFAULT_SETTINGS.botReplyTemplates,
+            requestAccepted: "Перед вами примерно {{position}} трека. Песня: {{title}}"
+          }
+        })
+      } as never,
+      auditService as never,
+      {
+        getRequiredChannelBySlug: vi.fn().mockResolvedValue({
+          id: "channel-main",
+          slug: "main"
+        })
+      } as never
+    );
+
+    const result = await service.createTelegramRequest({
+      telegramUpdateId: "update-1",
+      telegramChatId: "chat-1",
+      telegramUserId: "400",
+      rawText: "Кино - Пачка сигарет",
+      channelSlug: "main"
+    });
+
+    expect(result.message).toBe("Перед вами примерно 2 трека. Песня: Пачка сигарет");
+    expect(queueService.refreshSessionDerivedState).toHaveBeenCalledWith(
+      "session-1",
+      tx
+    );
+    expect(tx.songRequest.findUnique).toHaveBeenCalledWith({
+      where: { id: "request-1" },
+      select: {
+        queueRank: true,
+        title: true,
+        rawText: true
+      }
+    });
   });
 });

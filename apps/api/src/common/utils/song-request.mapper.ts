@@ -25,6 +25,7 @@ export function toSongRequestDto(request: SongRequestWithGuest): SongRequestDto 
     rawText: request.rawText,
     artist: request.artist,
     title: request.title,
+    needsReview: !request.artist || !request.title,
     source: request.source,
     status: request.status,
     outcome: request.outcome,

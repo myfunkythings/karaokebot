@@ -69,6 +69,7 @@ declare module "@karaoke/contracts" {
     rawText: string;
     artist: string | null;
     title: string | null;
+    needsReview: boolean;
     source: "telegram" | "manual";
     status: "queued" | "current" | "sung" | "cancelled";
     outcome: "sung" | "cancelled_by_host" | "left_venue" | "undone" | null;

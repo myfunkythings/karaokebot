@@ -89,7 +89,7 @@ export function RowActionsMenu({
             disabled={!canManage || !canCall}
             onClick={() => runAction(() => onCall(request))}
           >
-            Вызвать вне очереди
+            Вызвать сейчас
           </button>
           <button type="button" className="row-actions-menu__item" role="menuitem" onClick={() => runAction(onEdit)}>
             Редактировать
@@ -122,7 +122,7 @@ export function RowActionsMenu({
             disabled={!canManage || !canReorder}
             onClick={() => runAction(() => onNoShow(request))}
           >
-            Не дошёл
+            Гость не дошёл
           </button>
         </div>
       ) : null}
