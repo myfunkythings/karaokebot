@@ -91,8 +91,8 @@ describe("SongRequestsService.getTelegramGuestStatusSummary", () => {
 
     const message = await service.getTelegramGuestStatusSummary("400", "secondary");
 
-    expect(message).toContain("1. Guest song 1 — позиция в очереди: 2; примерно через 2 трека.");
-    expect(message).toContain("2. Guest song 2 — позиция в очереди: 4; примерно через 3 трека.");
+    expect(message).toContain("1. Guest song 1 — примерно через 2 трека.");
+    expect(message).toContain("2. Guest song 2 — примерно через 3 трека.");
   });
 
   it("explains when the guest is next", async () => {
@@ -274,7 +274,7 @@ describe("SongRequestsService.createTelegramRequest", () => {
           ...DEFAULT_SETTINGS,
           botReplyTemplates: {
             ...DEFAULT_SETTINGS.botReplyTemplates,
-            requestAccepted: "Позиция в очереди: {{position}}. Песня: {{title}}"
+            requestAccepted: "Перед вами примерно {{position}} трека. Песня: {{title}}"
           }
         })
       } as never,
@@ -295,7 +295,7 @@ describe("SongRequestsService.createTelegramRequest", () => {
       channelSlug: "main"
     });
 
-    expect(result.message).toBe("Позиция в очереди: 2. Песня: Пачка сигарет");
+    expect(result.message).toBe("Перед вами примерно 2 трека. Песня: Пачка сигарет");
     expect(queueService.refreshSessionDerivedState).toHaveBeenCalledWith(
       "session-1",
       tx

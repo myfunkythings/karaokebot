@@ -505,9 +505,7 @@ export class SongRequestsService {
         tracksAheadByRequestId.get(request.id) ?? Math.max(0, position - 1);
       const title = request.title ?? request.rawText;
 
-      return `${index + 1}. ${title} — позиция в очереди: ${position}; ${this.formatTracksAhead(
-        tracksAhead
-      )}.`;
+      return `${index + 1}. ${title} — ${this.formatTracksAhead(tracksAhead)}.`;
     });
 
     return ["Твои песни в очереди:", ...lines].join("\n");
