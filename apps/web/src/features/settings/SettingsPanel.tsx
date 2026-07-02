@@ -11,7 +11,7 @@ const botReplyFields: Array<{
   { key: "startMessage", label: "Сообщение на /start" },
   { key: "unknownCommand", label: "Ответ на неизвестную команду" },
   { key: "emptyMessage", label: "Ответ на пустое сообщение" },
-  { key: "requestAccepted", label: "Текст при успешной заявке" },
+  { key: "requestAccepted", label: "Текст при успешной заявке (`{{title}}`, `{{position}}`)" },
   { key: "requestRejectedRateLimit", label: "Текст при антиспаме" },
   { key: "requestRejectedNoSession", label: "Текст при закрытом приёме заявок" },
   { key: "statusCurrentPerformer", label: "Статус: пользователь уже у сцены" },

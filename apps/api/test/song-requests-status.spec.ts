@@ -192,3 +192,83 @@ describe("SongRequestsService.cancelTelegramGuestQueuedRequests", () => {
     expect(message).toContain("2. Guest raw 2");
   });
 });
+
+describe("SongRequestsService.createTelegramRequest", () => {
+  it("renders the accepted request template with the queue position", async () => {
+    const tx = {
+      songRequest: {
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue({
+          id: "request-1",
+          rawText: "Кино - Пачка сигарет",
+          title: "Пачка сигарет"
+        }),
+        findUnique: vi.fn().mockResolvedValue({
+          queueRank: 3,
+          title: "Пачка сигарет",
+          rawText: "Кино - Пачка сигарет"
+        })
+      }
+    };
+    const prisma = {
+      $transaction: vi.fn((callback: (txArg: typeof tx) => Promise<unknown>) =>
+        callback(tx)
+      ),
+      acquireSessionLock: vi.fn().mockResolvedValue(undefined)
+    };
+    const queueService = {
+      refreshSessionDerivedState: vi.fn().mockResolvedValue(undefined)
+    };
+    const auditService = {
+      recordAction: vi.fn().mockResolvedValue(undefined)
+    };
+    const service = new SongRequestsService(
+      prisma as never,
+      {
+        upsertTelegramGuest: vi.fn().mockResolvedValue({
+          id: "guest-1"
+        })
+      } as never,
+      { getActiveSession: vi.fn().mockResolvedValue({ id: "session-1" }) } as never,
+      queueService as never,
+      {
+        getGlobalSettings: vi.fn().mockResolvedValue({
+          ...DEFAULT_SETTINGS,
+          botReplyTemplates: {
+            ...DEFAULT_SETTINGS.botReplyTemplates,
+            requestAccepted: "Позиция в очереди: {{position}}. Песня: {{title}}"
+          }
+        })
+      } as never,
+      auditService as never,
+      {
+        getRequiredChannelBySlug: vi.fn().mockResolvedValue({
+          id: "channel-main",
+          slug: "main"
+        })
+      } as never
+    );
+
+    const result = await service.createTelegramRequest({
+      telegramUpdateId: "update-1",
+      telegramChatId: "chat-1",
+      telegramUserId: "400",
+      rawText: "Кино - Пачка сигарет",
+      channelSlug: "main"
+    });
+
+    expect(result.message).toBe("Позиция в очереди: 3. Песня: Пачка сигарет");
+    expect(queueService.refreshSessionDerivedState).toHaveBeenCalledWith(
+      "session-1",
+      tx
+    );
+    expect(tx.songRequest.findUnique).toHaveBeenCalledWith({
+      where: { id: "request-1" },
+      select: {
+        queueRank: true,
+        title: true,
+        rawText: true
+      }
+    });
+  });
+});

@@ -174,9 +174,23 @@ export class SongRequestsService {
         tx
       );
 
+      const updatedRequest = await tx.songRequest.findUnique({
+        where: { id: request.id },
+        select: {
+          queueRank: true,
+          title: true,
+          rawText: true
+        }
+      });
+      const title = updatedRequest?.title ?? updatedRequest?.rawText ?? request.rawText;
+      const position = updatedRequest?.queueRank ?? 0;
+
       return {
         status: "accepted" as const,
-        message: settings.botReplyTemplates.requestAccepted,
+        message: this.renderTemplate(settings.botReplyTemplates.requestAccepted, {
+          title,
+          position: String(position)
+        }),
         requestId: request.id,
         guestProfileId: guest.id
       };
@@ -491,5 +505,12 @@ export class SongRequestsService {
     }
 
     return "заявок";
+  }
+
+  private renderTemplate(template: string, values: Record<string, string>) {
+    return Object.entries(values).reduce(
+      (result, [key, value]) => result.replaceAll(`{{${key}}}`, value),
+      template
+    );
   }
 }
