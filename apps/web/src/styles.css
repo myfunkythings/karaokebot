@@ -25,7 +25,7 @@
 
 .public-queue-page {
   min-height: 100vh;
-  background: #f4f6f8;
+  background: #ffffff;
 }
 
 .public-queue-shell {
@@ -55,24 +55,22 @@
   text-align: center;
 }
 
-.public-queue-topbar .host-console-bar__admin strong {
+.public-queue-logo {
   display: block;
-  color: #183642;
-  font-size: 30px;
-  line-height: 36px;
-  font-weight: 900;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  width: min(280px, 72vw);
+  height: auto;
+  margin: 0 auto;
+  object-fit: contain;
 }
 
 .public-queue-topbar .host-console-bar__admin span {
   display: block;
   max-width: 760px;
-  margin: 8px auto 0;
+  margin: 4px auto 0;
   color: #58707b;
   font-size: 14px;
   line-height: 20px;
-  font-weight: 600;
+  font-weight: 400;
   text-align: center;
   text-transform: none;
 }
@@ -4462,9 +4460,9 @@ body {
 }
 
 .public-queue-table .public-queue-table__position {
-  width: 88px;
-  padding-left: 16px;
-  text-align: left;
+  width: 64px;
+  padding-left: 14px;
+  text-align: right;
 }
 
 .public-queue-table .public-queue-table__position span {
@@ -4474,19 +4472,20 @@ body {
   padding: 0;
   border-radius: 0;
   background: transparent;
-  color: #183642;
+  color: #7b8b93;
   font-size: 16px;
   line-height: 22px;
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .public-queue-table .public-queue-row--current .public-queue-table__position span {
   color: #1f6b47;
-  font-weight: 850;
+  font-weight: 600;
 }
 
 .public-queue-table .public-queue-row--next .public-queue-table__position span {
-  color: #9a4d1e;
+  color: #7b8b93;
+  font-weight: 500;
 }
 
 .public-queue-table .public-queue-table__request strong {
@@ -4524,12 +4523,16 @@ body {
 
   .public-queue-table .public-queue-row {
     display: grid;
-    grid-template-columns: minmax(44px, auto) minmax(0, 1fr);
+    grid-template-columns: 2ch minmax(0, 1fr);
     align-items: baseline;
-    column-gap: 12px;
+    column-gap: 8px;
     min-height: 44px;
     padding: 8px 18px;
     border-bottom: 1px solid #edf1f3;
+  }
+
+  .public-queue-table .public-queue-row--current {
+    grid-template-columns: max-content minmax(0, 1fr);
   }
 
   .public-queue-table .public-queue-row:last-child {

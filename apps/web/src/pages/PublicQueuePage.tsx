@@ -148,7 +148,7 @@ export function PublicQueuePage() {
         <section className="host-panel-page public-queue-shell">
           <div className="host-console-bar public-queue-topbar">
             <div className="host-console-bar__admin">
-              <strong>{activeProfile.title}</strong>
+              <img className="public-queue-logo" src="/sanatorium-john-doe-logo.png" alt={activeProfile.title} />
               <span>
                 Позиции в очереди могут меняться, т.к. система автоматически поднимает наверх тех, кто спел меньше, а
                 уже потом сортирует по времени заявки.
@@ -166,7 +166,7 @@ export function PublicQueuePage() {
       <section className="host-panel-page public-queue-shell">
         <div className="host-console-bar public-queue-topbar">
           <div className="host-console-bar__admin">
-            <strong>{activeProfile.title}</strong>
+            <img className="public-queue-logo" src="/sanatorium-john-doe-logo.png" alt={activeProfile.title} />
             <span>
               Позиции в очереди могут меняться, т.к. система автоматически поднимает наверх тех, кто спел меньше, а уже
               потом сортирует по времени заявки.
