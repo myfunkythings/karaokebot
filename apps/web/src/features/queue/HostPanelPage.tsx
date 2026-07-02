@@ -109,8 +109,22 @@ export function HostPanelPage({
     }
     return accumulator;
   }, {});
+  const nextRequest = snapshot.queued[0] ?? null;
+  const needsReviewCount = snapshot.queued.filter((item) => item.needsReview).length;
   const nextActionDisabled =
     !canManage || !snapshot.session || (!snapshot.current && !snapshot.queued.length) || nextMutation.isPending;
+
+  function getRequestSongLabel(request: SongRequestDto | null) {
+    if (!request) {
+      return "Сцена свободна";
+    }
+
+    if (request.artist && request.title) {
+      return `${request.artist} - ${request.title}`;
+    }
+
+    return request.title ?? request.rawText;
+  }
 
   useEffect(() => {
     function handleHotkeys(event: KeyboardEvent) {
@@ -188,7 +202,9 @@ export function HostPanelPage({
   }
 
   function handleNoShow(guestName: string, guestId: string) {
-    const confirmed = window.confirm(`Отметить, что ${guestName} не дошёл(а), и снять будущие заявки?`);
+    const confirmed = window.confirm(
+      `Отметить, что ${guestName} не дошёл(а), и снять все активные и будущие заявки этого гостя?`
+    );
     if (confirmed) {
       cancelGuestMutation.mutate({
         guestId,
@@ -234,6 +250,25 @@ export function HostPanelPage({
           ) : null}
         </div>
 
+        <div className="operational-toolbar__facts">
+          <div className="operational-toolbar__fact">
+            <span>Сейчас</span>
+            <strong>{snapshot.current?.guest.displayName ?? "Сцена свободна"}</strong>
+            <small className="operational-toolbar__fact-meta">{getRequestSongLabel(snapshot.current)}</small>
+          </div>
+          <div className="operational-toolbar__fact">
+            <span>Следующий</span>
+            <strong>{nextRequest?.guest.displayName ?? "Очередь пуста"}</strong>
+            <small className="operational-toolbar__fact-meta">{getRequestSongLabel(nextRequest)}</small>
+          </div>
+          <div className="operational-toolbar__fact">
+            <span>Проверить</span>
+            <strong>{needsReviewCount}</strong>
+            <small className="operational-toolbar__fact-meta">
+              {needsReviewCount ? "неясных заявок" : "всё чисто"}
+            </small>
+          </div>
+        </div>
         <div className="operational-toolbar__actions">
           <button
             className="secondary-button secondary-button--toolbar"
@@ -248,9 +283,13 @@ export function HostPanelPage({
             onClick={handleCallNext}
             disabled={nextActionDisabled}
             type="button"
-            title="Горячая клавиша: N"
+            title={
+              snapshot.current
+                ? "Завершит текущий номер и вызовет следующего"
+                : "Вызовет следующую заявку"
+            }
           >
-            {nextMutation.isPending ? "Вызываем..." : "Следующая песня"}
+            {nextMutation.isPending ? "Вызываем..." : "Вызвать следующего"}
           </button>
         </div>
       </section>

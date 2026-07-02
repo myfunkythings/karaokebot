@@ -99,6 +99,7 @@ export type SongRequestDto = {
   rawText: string;
   artist: string | null;
   title: string | null;
+  needsReview: boolean;
   source: SongRequestSource;
   status: SongRequestStatus;
   outcome: SongRequestOutcome | null;
