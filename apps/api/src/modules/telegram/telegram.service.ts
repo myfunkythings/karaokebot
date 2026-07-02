@@ -18,6 +18,7 @@ import {
 } from "./telegram-status-intent.js";
 import { TelegramOutboundService } from "./telegram-outbound.service.js";
 import { getTelegramPublicQueueUrl } from "./telegram-public-queue-url.js";
+import { createPublicQueueGuestToken } from "./public-queue-guest-token.js";
 import { resolveTelegramWebhookUrl } from "./telegram-webhook.js";
 
 type TelegramMessage = {
@@ -112,7 +113,11 @@ export class TelegramService implements OnApplicationBootstrap {
     try {
       const settings = await this.settingsService.getGlobalSettings();
       let replyText = "";
-      let keyboardRows = this.getDefaultKeyboardRows(channel.slug, settings);
+      let keyboardRows = this.getDefaultKeyboardRows(
+        channel.slug,
+        settings,
+        telegramUserId
+      );
       let guestProfileId: string | null = null;
       let linkedSongRequestId: string | null = null;
 
@@ -121,7 +126,7 @@ export class TelegramService implements OnApplicationBootstrap {
           await this.songRequestsService.getTelegramGuestStatusSummary(telegramUserId, channel.slug);
       } else if (isTelegramViewQueueIntent(text, [settings.botReplyTemplates.telegramViewQueueButtonText])) {
         replyText = this.formatTemplate(settings.botReplyTemplates.telegramViewQueueReplyTemplate, {
-          url: getTelegramPublicQueueUrl(channel.slug)
+          url: this.getPersonalPublicQueueUrl(channel.slug, telegramUserId)
         });
       } else if (isTelegramCancelRequestIntent(text, [settings.botReplyTemplates.telegramCancelButtonText])) {
         replyText = settings.botReplyTemplates.telegramCancelConfirmationMessage;
@@ -346,7 +351,8 @@ export class TelegramService implements OnApplicationBootstrap {
 
   private getDefaultKeyboardRows(
     channelSlug: string,
-    settings: Awaited<ReturnType<SettingsService["getGlobalSettings"]>>
+    settings: Awaited<ReturnType<SettingsService["getGlobalSettings"]>>,
+    telegramUserId?: string | null
   ): TelegramKeyboardRow[] {
     return [
       [{ text: settings.botReplyTemplates.telegramStatusButtonText }],
@@ -354,12 +360,34 @@ export class TelegramService implements OnApplicationBootstrap {
         {
           text: settings.botReplyTemplates.telegramViewQueueButtonText,
           web_app: {
-            url: getTelegramPublicQueueUrl(channelSlug)
+            url: this.getPersonalPublicQueueUrl(channelSlug, telegramUserId)
           }
         }
       ],
       [{ text: settings.botReplyTemplates.telegramCancelButtonText }]
     ];
+  }
+
+  private getPersonalPublicQueueUrl(channelSlug: string, telegramUserId?: string | null) {
+    const tokenSecret = this.getPublicQueueTokenSecret(channelSlug);
+    const guestToken =
+      telegramUserId && tokenSecret
+        ? createPublicQueueGuestToken({
+            channelSlug,
+            telegramUserId,
+            secret: tokenSecret
+          })
+        : null;
+
+    return getTelegramPublicQueueUrl(channelSlug, guestToken);
+  }
+
+  private getPublicQueueTokenSecret(channelSlug: string) {
+    return (
+      this.configService.get<string>("SESSION_SECRET") ??
+      this.getWebhookSecret(channelSlug) ??
+      this.getBotToken(channelSlug)
+    );
   }
 
   private formatTemplate(template: string, values: Record<string, string>) {

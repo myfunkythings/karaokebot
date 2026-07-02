@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { QueueService } from "../src/modules/queue/queue.service.js";
+import { createPublicQueueGuestToken } from "../src/modules/telegram/public-queue-guest-token.js";
+
+const tokenSecret = "test-session-secret";
 
 function createService() {
   const channel = {
@@ -15,7 +18,14 @@ function createService() {
     version: 7,
     openedAt: new Date("2026-06-30T12:00:00.000Z"),
     closedAt: null,
-    timezone: "Europe/Moscow"
+    timezone: "Europe/Moscow",
+    configSnapshotJson: {
+      queuePolicyFlags: {
+        prioritizeFirstTimeSinger: true,
+        prioritizeLowerSungCount: true,
+        prioritizeRequestTime: true
+      }
+    }
   };
   const privateGuest = {
     id: "guest-1",
@@ -23,59 +33,63 @@ function createService() {
     telegramUsername: "private_guest",
     telegramUserId: "123456"
   };
+  const requests = [
+    {
+      id: "request-current",
+      sessionId: "session-1",
+      channelId: "channel-main",
+      guestProfileId: "guest-1",
+      guestProfile: privateGuest,
+      rawText: "Queen - The Show Must Go On",
+      artist: "Queen",
+      title: "The Show Must Go On",
+      source: "telegram",
+      status: "current",
+      outcome: null,
+      requestedAt: new Date("2026-06-30T12:01:00.000Z"),
+      calledAt: new Date("2026-06-30T12:10:00.000Z"),
+      completedAt: null,
+      cancelledAt: null,
+      queueRank: null,
+      orderMode: "auto",
+      manualRank: null,
+      deferCount: 0,
+      note: "private note"
+    },
+    {
+      id: "request-queued",
+      sessionId: "session-1",
+      channelId: "channel-main",
+      guestProfileId: "guest-2",
+      guestProfile: {
+        id: "guest-2",
+        displayName: "Second Private Guest",
+        telegramUsername: "second_private",
+        telegramUserId: "987654"
+      },
+      rawText: "Кино - Группа крови",
+      artist: "Кино",
+      title: "Группа крови",
+      source: "manual",
+      status: "queued",
+      outcome: null,
+      requestedAt: new Date("2026-06-30T12:02:00.000Z"),
+      calledAt: null,
+      completedAt: null,
+      cancelledAt: null,
+      queueRank: 1,
+      orderMode: "manual_pin",
+      manualRank: 1,
+      deferCount: 2,
+      note: "another private note"
+    }
+  ];
   const prisma = {
     songRequest: {
-      findMany: vi.fn().mockResolvedValue([
-        {
-          id: "request-current",
-          sessionId: "session-1",
-          channelId: "channel-main",
-          guestProfileId: "guest-1",
-          guestProfile: privateGuest,
-          rawText: "Queen - The Show Must Go On",
-          artist: "Queen",
-          title: "The Show Must Go On",
-          source: "telegram",
-          status: "current",
-          outcome: null,
-          requestedAt: new Date("2026-06-30T12:01:00.000Z"),
-          calledAt: new Date("2026-06-30T12:10:00.000Z"),
-          completedAt: null,
-          cancelledAt: null,
-          queueRank: null,
-          orderMode: "auto",
-          manualRank: null,
-          deferCount: 0,
-          note: "private note"
-        },
-        {
-          id: "request-queued",
-          sessionId: "session-1",
-          channelId: "channel-main",
-          guestProfileId: "guest-2",
-          guestProfile: {
-            id: "guest-2",
-            displayName: "Second Private Guest",
-            telegramUsername: "second_private",
-            telegramUserId: "987654"
-          },
-          rawText: "Кино - Группа крови",
-          artist: "Кино",
-          title: "Группа крови",
-          source: "manual",
-          status: "queued",
-          outcome: null,
-          requestedAt: new Date("2026-06-30T12:02:00.000Z"),
-          calledAt: null,
-          completedAt: null,
-          cancelledAt: null,
-          queueRank: 1,
-          orderMode: "manual_pin",
-          manualRank: 1,
-          deferCount: 2,
-          note: "another private note"
-        }
-      ])
+      findMany: vi.fn().mockResolvedValue(requests)
+    },
+    sessionGuestStat: {
+      findMany: vi.fn().mockResolvedValue([])
     }
   };
   const sessionsService = {
@@ -84,6 +98,9 @@ function createService() {
   const requestChannelsService = {
     getRequiredChannelBySlug: vi.fn().mockResolvedValue(channel)
   };
+  const configService = {
+    get: vi.fn((key: string) => (key === "SESSION_SECRET" ? tokenSecret : undefined))
+  };
 
   const service = new QueueService(
     prisma as never,
@@ -91,7 +108,8 @@ function createService() {
     sessionsService as never,
     {} as never,
     requestChannelsService as never,
-    {} as never
+    {} as never,
+    configService as never
   );
 
   return { prisma, requestChannelsService, service };
@@ -128,6 +146,7 @@ describe("QueueService public snapshot", () => {
         status: "queued"
       }
     ]);
+    expect(snapshot.viewer).toBeNull();
     expect(serializedSnapshot).not.toContain("guest");
     expect(serializedSnapshot).not.toContain("telegram");
     expect(serializedSnapshot).not.toContain("Private Guest");
@@ -138,5 +157,46 @@ describe("QueueService public snapshot", () => {
     expect(serializedSnapshot).not.toContain("request-current");
     expect(serializedSnapshot).not.toContain("Вечер");
     expect(serializedSnapshot).not.toContain("Europe/Moscow");
+  });
+
+  it("adds only viewer highlight and forecast for a valid personal queue token", async () => {
+    const { service } = createService();
+    const guestToken = createPublicQueueGuestToken({
+      channelSlug: "main",
+      telegramUserId: "987654",
+      secret: tokenSecret
+    });
+
+    const snapshot = await service.getPublicSnapshot("main", guestToken);
+    const serializedSnapshot = JSON.stringify(snapshot);
+
+    expect(snapshot.current?.isViewerRequest).toBeUndefined();
+    expect(snapshot.queued).toEqual([
+      {
+        position: 1,
+        rawText: "Кино - Группа крови",
+        artist: "Кино",
+        title: "Группа крови",
+        status: "queued",
+        isViewerRequest: true,
+        forecastTracksAhead: 1,
+        forecastText: "примерно через 1 трек"
+      }
+    ]);
+    expect(snapshot.viewer).toEqual({
+      queuedCount: 1,
+      nearestRequest: {
+        position: 1,
+        rawText: "Кино - Группа крови",
+        artist: "Кино",
+        title: "Группа крови",
+        status: "queued",
+        forecastTracksAhead: 1,
+        forecastText: "примерно через 1 трек"
+      }
+    });
+    expect(serializedSnapshot).not.toContain("telegramUserId");
+    expect(serializedSnapshot).not.toContain("987654");
+    expect(serializedSnapshot).not.toContain("Second Private Guest");
   });
 });

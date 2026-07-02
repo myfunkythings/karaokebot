@@ -127,6 +127,9 @@ declare module "@karaoke/contracts" {
     artist: string | null;
     title: string | null;
     status: "queued" | "current";
+    isViewerRequest?: boolean;
+    forecastTracksAhead?: number | null;
+    forecastText?: string | null;
   };
 
   export type PublicQueueSnapshotDto = {
@@ -134,6 +137,18 @@ declare module "@karaoke/contracts" {
     activeChannel: Pick<RequestChannelDto, "color">;
     current: PublicSongRequestDto | null;
     queued: PublicSongRequestDto[];
+    viewer: {
+      queuedCount: number;
+      nearestRequest: {
+        position: number | null;
+        rawText: string;
+        artist: string | null;
+        title: string | null;
+        status: "queued" | "current";
+        forecastTracksAhead: number | null;
+        forecastText: string;
+      } | null;
+    } | null;
     stats: {
       queuedCount: number;
       hasCurrent: boolean;

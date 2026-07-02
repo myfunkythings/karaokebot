@@ -50,9 +50,11 @@ export const api = {
     apiFetch<QueueSnapshotDto>(
       `/queue/snapshot${channelSlug ? `?channel=${encodeURIComponent(channelSlug)}` : ""}`
     ),
-  getPublicQueueSnapshot: (channelSlug: string) =>
+  getPublicQueueSnapshot: (channelSlug: string, guestToken?: string | null) =>
     apiFetch<PublicQueueSnapshotDto>(
-      `/queue/public-snapshot?channel=${encodeURIComponent(channelSlug)}`
+      `/queue/public-snapshot?channel=${encodeURIComponent(channelSlug)}${
+        guestToken ? `&guest=${encodeURIComponent(guestToken)}` : ""
+      }`
     ),
   getStats: () => apiFetch<SessionStatsDto | null>("/stats/active-session"),
   getSettings: () => apiFetch<GlobalSettings>("/settings/global"),

@@ -116,7 +116,7 @@ describe("TelegramService status text handling", () => {
           {
             text: "Открыть очередь",
             web_app: {
-              url: "https://zapoi.john-doe.ru/"
+              url: expect.stringMatching(/^https:\/\/zapoi\.john-doe\.ru\/\?guest=.+/)
             }
           }
         ],
@@ -194,7 +194,9 @@ describe("TelegramService status text handling", () => {
           {
             text: "Открыть очередь",
             web_app: {
-              url: "https://calc1.printninjas.ru/karaoke/queue/mishka"
+              url: expect.stringMatching(
+                /^https:\/\/calc1\.printninjas\.ru\/karaoke\/queue\/mishka\?guest=.+/
+              )
             }
           }
         ],
@@ -212,7 +214,7 @@ describe("TelegramService status text handling", () => {
     expect(telegramOutboundService.sendMessage).toHaveBeenCalledWith(
       "secondary",
       "300",
-      "Очередь тут: https://zapoi.john-doe.ru/",
+      expect.stringMatching(/^Очередь тут: https:\/\/zapoi\.john-doe\.ru\/\?guest=.+/),
       expect.any(Array)
     );
   });
