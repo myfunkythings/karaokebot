@@ -235,7 +235,9 @@ export class SongRequestsService {
         status: "accepted" as const,
         message: this.renderTemplate(settings.botReplyTemplates.requestAccepted, {
           title,
-          position: String(position)
+          position: String(position),
+          trackPlural: this.getTrackPlural(position),
+          tracksAheadText: this.formatTracksAhead(position)
         }),
         requestId: request.id,
         guestProfileId: guest.id

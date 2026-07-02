@@ -113,6 +113,21 @@ describe("SongRequestsService.getTelegramGuestStatusSummary", () => {
       "ты следующий/следующая"
     );
   });
+
+  it("declines track counts in Telegram forecast text", async () => {
+    const { service } = createService({});
+    const serviceInternals = service as unknown as {
+      formatTracksAhead(tracksAhead: number): string;
+    };
+
+    expect(serviceInternals.formatTracksAhead(1)).toBe("примерно через 1 трек");
+    expect(serviceInternals.formatTracksAhead(2)).toBe("примерно через 2 трека");
+    expect(serviceInternals.formatTracksAhead(5)).toBe("примерно через 5 треков");
+    expect(serviceInternals.formatTracksAhead(11)).toBe("примерно через 11 треков");
+    expect(serviceInternals.formatTracksAhead(21)).toBe("примерно через 21 трек");
+    expect(serviceInternals.formatTracksAhead(22)).toBe("примерно через 22 трека");
+    expect(serviceInternals.formatTracksAhead(25)).toBe("примерно через 25 треков");
+  });
 });
 
 describe("SongRequestsService.cancelTelegramGuestQueuedRequests", () => {
@@ -233,12 +248,42 @@ describe("SongRequestsService.createTelegramRequest", () => {
             manualRank: null
           },
           {
+            id: "request-ahead-3",
+            guestProfileId: "guest-4",
+            queueRank: 3,
+            title: "Ahead 3",
+            rawText: "Ahead 3",
+            requestedAt: new Date("2026-06-25T18:02:00.000Z"),
+            orderMode: "auto",
+            manualRank: null
+          },
+          {
+            id: "request-ahead-4",
+            guestProfileId: "guest-5",
+            queueRank: 4,
+            title: "Ahead 4",
+            rawText: "Ahead 4",
+            requestedAt: new Date("2026-06-25T18:03:00.000Z"),
+            orderMode: "auto",
+            manualRank: null
+          },
+          {
+            id: "request-ahead-5",
+            guestProfileId: "guest-6",
+            queueRank: 5,
+            title: "Ahead 5",
+            rawText: "Ahead 5",
+            requestedAt: new Date("2026-06-25T18:04:00.000Z"),
+            orderMode: "auto",
+            manualRank: null
+          },
+          {
             id: "request-1",
             guestProfileId: "guest-1",
-            queueRank: 3,
+            queueRank: 6,
             title: "Пачка сигарет",
             rawText: "Кино - Пачка сигарет",
-            requestedAt: new Date("2026-06-25T18:02:00.000Z"),
+            requestedAt: new Date("2026-06-25T18:05:00.000Z"),
             orderMode: "auto",
             manualRank: null
           }
@@ -274,7 +319,8 @@ describe("SongRequestsService.createTelegramRequest", () => {
           ...DEFAULT_SETTINGS,
           botReplyTemplates: {
             ...DEFAULT_SETTINGS.botReplyTemplates,
-            requestAccepted: "Перед вами примерно {{position}} трека. Песня: {{title}}"
+            requestAccepted:
+              "Перед вами примерно {{position}} {{trackPlural}}. Песня: {{title}}"
           }
         })
       } as never,
@@ -295,7 +341,7 @@ describe("SongRequestsService.createTelegramRequest", () => {
       channelSlug: "main"
     });
 
-    expect(result.message).toBe("Перед вами примерно 2 трека. Песня: Пачка сигарет");
+    expect(result.message).toBe("Перед вами примерно 5 треков. Песня: Пачка сигарет");
     expect(queueService.refreshSessionDerivedState).toHaveBeenCalledWith(
       "session-1",
       tx

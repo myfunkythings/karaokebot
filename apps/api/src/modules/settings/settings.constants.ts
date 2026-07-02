@@ -24,7 +24,7 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
     statusNoGuestProfile: "У тебя пока нет активных заявок.",
     statusNoActiveRequests: "У тебя сейчас нет заявок в активной смене.",
     statusQueuedSummary:
-      "Ты в очереди. Следи за сценой и подходи, когда тебя позовут.\n\nТекущая заявка: {{title}}\nПесен перед вами: {{position}}.",
+      "Ты в очереди. Следи за сценой и подходи, когда тебя позовут.\n\nТекущая заявка: {{title}}\nПесен перед вами: {{position}} {{trackPlural}}.",
     fallbackPositionUnavailable:
       "Не удалось получить позицию: сейчас недоступны и новая программа, и Google Sheets.",
     fallbackRequestSaveFailed:
