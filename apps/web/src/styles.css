@@ -4462,8 +4462,8 @@ body {
 }
 
 .public-queue-table .public-queue-table__position {
-  width: 108px;
-  padding-left: 18px;
+  width: 88px;
+  padding-left: 16px;
   text-align: left;
 }
 
@@ -4475,8 +4475,8 @@ body {
   border-radius: 0;
   background: transparent;
   color: #183642;
-  font-size: 18px;
-  line-height: 24px;
+  font-size: 16px;
+  line-height: 22px;
   font-weight: 700;
 }
 
@@ -4494,8 +4494,8 @@ body {
   overflow: hidden;
   max-width: 100%;
   color: #183642;
-  font-size: 21px;
-  line-height: 27px;
+  font-size: 18px;
+  line-height: 24px;
   font-weight: 850;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4524,11 +4524,11 @@ body {
 
   .public-queue-table .public-queue-row {
     display: grid;
-    grid-template-columns: minmax(52px, auto) minmax(0, 1fr);
+    grid-template-columns: minmax(44px, auto) minmax(0, 1fr);
     align-items: baseline;
-    column-gap: 14px;
-    min-height: 54px;
-    padding: 12px 18px;
+    column-gap: 12px;
+    min-height: 44px;
+    padding: 8px 18px;
     border-bottom: 1px solid #edf1f3;
   }
 
@@ -4550,12 +4550,12 @@ body {
   }
 
   .public-queue-table .public-queue-table__position span {
-    font-size: 18px;
-    line-height: 24px;
+    font-size: 16px;
+    line-height: 22px;
   }
 
   .public-queue-table .public-queue-table__request strong {
-    font-size: 20px;
-    line-height: 25px;
+    font-size: 17px;
+    line-height: 22px;
   }
 }
