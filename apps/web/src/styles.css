@@ -4493,9 +4493,9 @@ body {
   overflow: hidden;
   max-width: 100%;
   color: #183642;
-  font-size: 18px;
-  line-height: 24px;
-  font-weight: 850;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -4512,6 +4512,12 @@ body {
 }
 
 @media (max-width: 720px) {
+  .queue-panel.public-queue-panel .queue-table-wrap {
+    width: calc(100% + 40px);
+    margin-right: -20px;
+    margin-left: -20px;
+  }
+
   .public-queue-table,
   .public-queue-table tbody {
     display: block;
@@ -4527,7 +4533,7 @@ body {
     align-items: baseline;
     column-gap: 8px;
     min-height: 44px;
-    padding: 8px 18px;
+    padding: 8px 38px;
     border-bottom: 1px solid #edf1f3;
   }
 
@@ -4558,7 +4564,7 @@ body {
   }
 
   .public-queue-table .public-queue-table__request strong {
-    font-size: 17px;
-    line-height: 22px;
+    font-size: 15px;
+    line-height: 20px;
   }
 }
