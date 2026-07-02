@@ -93,6 +93,58 @@ export function buildQueuePlan(
   return ordered;
 }
 
+export function forecastTurnsUntilRequest(
+  requests: QueueOrderRequest[],
+  statsByGuest: Map<string, QueueGuestStats>,
+  flags: QueuePolicyFlags,
+  targetRequestId: string
+) {
+  if (!requests.some((request) => request.id === targetRequestId)) {
+    return null;
+  }
+
+  const remainingRequests = [...requests];
+  const forecastStats = new Map(
+    [...statsByGuest.entries()].map(([guestId, stats]) => [
+      guestId,
+      { sungCount: stats.sungCount }
+    ])
+  );
+  let turnsAhead = 0;
+
+  while (remainingRequests.length) {
+    const plan = buildQueuePlan(remainingRequests, forecastStats, flags);
+    const nextId = plan[0]?.id;
+    if (!nextId) {
+      return null;
+    }
+
+    if (nextId === targetRequestId) {
+      return turnsAhead;
+    }
+
+    const nextIndex = remainingRequests.findIndex((request) => request.id === nextId);
+    if (nextIndex === -1) {
+      return null;
+    }
+
+    const [completedRequest] = remainingRequests.splice(nextIndex, 1);
+    if (!completedRequest) {
+      return null;
+    }
+
+    const currentStats = forecastStats.get(completedRequest.guestProfileId) ?? {
+      sungCount: 0
+    };
+    forecastStats.set(completedRequest.guestProfileId, {
+      sungCount: currentStats.sungCount + 1
+    });
+    turnsAhead += 1;
+  }
+
+  return null;
+}
+
 function compareAutoRequests(
   left: QueueOrderRequest,
   right: QueueOrderRequest,

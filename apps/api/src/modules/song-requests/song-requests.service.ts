@@ -1,11 +1,13 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { OrderMode, SongRequestOutcome, SongRequestStatus } from "@prisma/client";
+import type { QueuePolicyFlags } from "@karaoke/contracts";
 import { PrismaService } from "../../common/db/prisma.service.js";
 import { parseSongRequest } from "../../common/utils/parse-song-request.js";
 import { toSongRequestDto } from "../../common/utils/song-request.mapper.js";
 import { GuestsService } from "../guests/guests.service.js";
 import { SessionsService } from "../sessions/sessions.service.js";
 import { QueueService } from "../queue/queue.service.js";
+import { forecastTurnsUntilRequest } from "../queue/queue-order.js";
 import { SettingsService } from "../settings/settings.service.js";
 import { AuditService } from "../audit/audit.service.js";
 import { RequestChannelsService } from "../request-channels/request-channels.service.js";
@@ -22,6 +24,20 @@ type TelegramCreateResult =
       message: string;
       guestProfileId: string | null;
     };
+
+type ForecastQueuedRequest = {
+  id: string;
+  guestProfileId: string;
+  requestedAt: Date;
+  orderMode: OrderMode;
+  manualRank: number | null;
+  queueRank: number | null;
+};
+
+type ForecastGuestStat = {
+  guestProfileId: string;
+  sungCount: number;
+};
 
 @Injectable()
 export class SongRequestsService {
@@ -182,8 +198,38 @@ export class SongRequestsService {
           rawText: true
         }
       });
+      const [activeCurrent, queuedRequests, guestStats] = await Promise.all([
+        tx.songRequest.findFirst({
+          where: {
+            sessionId: session.id,
+            channelId: channel.id,
+            status: SongRequestStatus.current
+          }
+        }),
+        tx.songRequest.findMany({
+          where: {
+            sessionId: session.id,
+            channelId: channel.id,
+            status: SongRequestStatus.queued
+          },
+          orderBy: [{ requestedAt: "asc" }, { id: "asc" }]
+        }),
+        tx.sessionGuestStat.findMany({
+          where: {
+            sessionId: session.id
+          }
+        })
+      ]);
       const title = updatedRequest?.title ?? updatedRequest?.rawText ?? request.rawText;
-      const position = updatedRequest?.queueRank ?? 0;
+      const position =
+        this.forecastTracksAheadForRequest({
+          queuedRequests,
+          guestStats,
+          configSnapshotJson: session.configSnapshotJson,
+          requestId: request.id,
+          fallbackQueueRank: updatedRequest?.queueRank ?? null,
+          currentPerformerGuestId: activeCurrent?.guestProfileId ?? null
+        }) ?? 0;
 
       return {
         status: "accepted" as const,
@@ -275,10 +321,23 @@ export class SongRequestsService {
     });
 
     if (current) {
-      const queuedRequestsForCurrentGuest = await this.getQueuedRequestsForGuest(
-        session.id,
-        channel.id,
-        guest.id
+      const [queuedRequests, guestStats] = await Promise.all([
+        this.prisma.songRequest.findMany({
+          where: {
+            sessionId: session.id,
+            channelId: channel.id,
+            status: SongRequestStatus.queued
+          },
+          orderBy: [{ queueRank: "asc" }, { requestedAt: "asc" }]
+        }),
+        this.prisma.sessionGuestStat.findMany({
+          where: {
+            sessionId: session.id
+          }
+        })
+      ]);
+      const queuedRequestsForCurrentGuest = queuedRequests.filter(
+        (request) => request.guestProfileId === guest.id
       );
 
       if (!queuedRequestsForCurrentGuest.length) {
@@ -288,7 +347,16 @@ export class SongRequestsService {
       return [
         settings.botReplyTemplates.statusCurrentPerformer,
         "",
-        this.formatQueuedRequestsList(queuedRequestsForCurrentGuest, true)
+        this.formatQueuedRequestsList(
+          queuedRequestsForCurrentGuest,
+          this.forecastTracksAheadByRequestId({
+            queuedRequests,
+            guestStats,
+            configSnapshotJson: session.configSnapshotJson,
+            requests: queuedRequestsForCurrentGuest,
+            currentPerformerGuestId: current.guestProfileId
+          })
+        )
       ].join("\n");
     }
 
@@ -300,14 +368,21 @@ export class SongRequestsService {
       }
     });
 
-    const queuedRequests = await this.prisma.songRequest.findMany({
-      where: {
-        sessionId: session.id,
-        channelId: channel.id,
-        status: SongRequestStatus.queued
-      },
-      orderBy: [{ queueRank: "asc" }, { requestedAt: "asc" }]
-    });
+    const [queuedRequests, guestStats] = await Promise.all([
+      this.prisma.songRequest.findMany({
+        where: {
+          sessionId: session.id,
+          channelId: channel.id,
+          status: SongRequestStatus.queued
+        },
+        orderBy: [{ queueRank: "asc" }, { requestedAt: "asc" }]
+      }),
+      this.prisma.sessionGuestStat.findMany({
+        where: {
+          sessionId: session.id
+        }
+      })
+    ]);
 
     const guestQueuedRequests = queuedRequests.filter(
       (request) => request.guestProfileId === guest.id
@@ -317,7 +392,16 @@ export class SongRequestsService {
       return settings.botReplyTemplates.statusNoActiveRequests;
     }
 
-    return this.formatQueuedRequestsList(guestQueuedRequests, Boolean(activeCurrent));
+    return this.formatQueuedRequestsList(
+      guestQueuedRequests,
+      this.forecastTracksAheadByRequestId({
+        queuedRequests,
+        guestStats,
+        configSnapshotJson: session.configSnapshotJson,
+        requests: guestQueuedRequests,
+        currentPerformerGuestId: activeCurrent?.guestProfileId ?? null
+      })
+    );
   }
 
   async cancelTelegramGuestQueuedRequests(
@@ -406,22 +490,6 @@ export class SongRequestsService {
     return toSongRequestDto(request);
   }
 
-  private async getQueuedRequestsForGuest(
-    sessionId: string,
-    channelId: string,
-    guestProfileId: string
-  ) {
-    return this.prisma.songRequest.findMany({
-      where: {
-        sessionId,
-        channelId,
-        guestProfileId,
-        status: SongRequestStatus.queued
-      },
-      orderBy: [{ queueRank: "asc" }, { requestedAt: "asc" }]
-    });
-  }
-
   private formatQueuedRequestsList(
     requests: Array<{
       id: string;
@@ -429,11 +497,12 @@ export class SongRequestsService {
       title: string | null;
       rawText: string;
     }>,
-    hasActiveCurrent = false
+    tracksAheadByRequestId = new Map<string, number>()
   ) {
     const lines = requests.map((request, index) => {
       const position = request.queueRank ?? index + 1;
-      const tracksAhead = Math.max(0, position - 1 + (hasActiveCurrent ? 1 : 0));
+      const tracksAhead =
+        tracksAheadByRequestId.get(request.id) ?? Math.max(0, position - 1);
       const title = request.title ?? request.rawText;
 
       return `${index + 1}. ${title} — позиция в очереди: ${position}; ${this.formatTracksAhead(
@@ -442,6 +511,72 @@ export class SongRequestsService {
     });
 
     return ["Твои песни в очереди:", ...lines].join("\n");
+  }
+
+  private forecastTracksAheadByRequestId(input: {
+    queuedRequests: ForecastQueuedRequest[];
+    guestStats: ForecastGuestStat[];
+    configSnapshotJson: unknown;
+    requests: Array<{ id: string; queueRank: number | null }>;
+    currentPerformerGuestId?: string | null;
+  }) {
+    return new Map(
+      input.requests.map((request) => [
+        request.id,
+        this.forecastTracksAheadForRequest({
+          queuedRequests: input.queuedRequests,
+          guestStats: input.guestStats,
+          configSnapshotJson: input.configSnapshotJson,
+          requestId: request.id,
+          fallbackQueueRank: request.queueRank,
+          currentPerformerGuestId: input.currentPerformerGuestId
+        }) ?? Math.max(0, (request.queueRank ?? 1) - 1)
+      ])
+    );
+  }
+
+  private forecastTracksAheadForRequest(input: {
+    queuedRequests: ForecastQueuedRequest[];
+    guestStats: ForecastGuestStat[];
+    configSnapshotJson: unknown;
+    requestId: string;
+    fallbackQueueRank: number | null;
+    currentPerformerGuestId?: string | null;
+  }) {
+    const statsByGuest = new Map(
+      input.guestStats.map((item) => [
+        item.guestProfileId,
+        { sungCount: item.sungCount }
+      ])
+    );
+    const currentPerformerGuestId = input.currentPerformerGuestId ?? null;
+    const activeCurrentOffset = currentPerformerGuestId ? 1 : 0;
+
+    if (currentPerformerGuestId) {
+      const currentStats = statsByGuest.get(currentPerformerGuestId) ?? {
+        sungCount: 0
+      };
+      statsByGuest.set(currentPerformerGuestId, {
+        sungCount: currentStats.sungCount + 1
+      });
+    }
+
+    const forecastTurns = forecastTurnsUntilRequest(
+      input.queuedRequests.map((request) => ({
+        id: request.id,
+        guestProfileId: request.guestProfileId,
+        requestedAt: request.requestedAt,
+        orderMode: request.orderMode,
+        manualRank: request.manualRank
+      })),
+      statsByGuest,
+      this.getQueuePolicyFlags(input.configSnapshotJson),
+      input.requestId
+    );
+
+    return (
+      forecastTurns ?? Math.max((input.fallbackQueueRank ?? 1) - 1, 0)
+    ) + activeCurrentOffset;
   }
 
   private formatCancelledRequestsMessage(
@@ -512,5 +647,19 @@ export class SongRequestsService {
       (result, [key, value]) => result.replaceAll(`{{${key}}}`, value),
       template
     );
+  }
+
+  private getQueuePolicyFlags(configSnapshotJson: unknown): QueuePolicyFlags {
+    const flags = (
+      configSnapshotJson as {
+        queuePolicyFlags?: Partial<QueuePolicyFlags>;
+      } | null
+    )?.queuePolicyFlags;
+
+    return {
+      prioritizeFirstTimeSinger: flags?.prioritizeFirstTimeSinger ?? true,
+      prioritizeLowerSungCount: flags?.prioritizeLowerSungCount ?? true,
+      prioritizeRequestTime: flags?.prioritizeRequestTime ?? true
+    };
   }
 }
