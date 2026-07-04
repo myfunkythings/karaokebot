@@ -112,6 +112,14 @@ function formatViewerForecastSentence(forecastText: string) {
   return `Сейчас ваша песня: ${forecastText}.`;
 }
 
+function PublicQueueBrand({ profile }: { profile: ReturnType<typeof getActiveBotProfile> }) {
+  if (profile.slug === "zapoi") {
+    return <img className="public-queue-logo" src="/sanatorium-john-doe-logo.png" alt={profile.title} />;
+  }
+
+  return <strong className="public-queue-title">{profile.title}</strong>;
+}
+
 function PublicQueueRow({ request, isNext = false }: { request: PublicSongRequestDto; isNext?: boolean }) {
   const rowClassName = [
     "public-queue-row",
@@ -171,7 +179,7 @@ export function PublicQueuePage() {
         <section className="host-panel-page public-queue-shell">
           <div className="host-console-bar public-queue-topbar">
             <div className="host-console-bar__admin">
-              <strong>{activeProfile.title}</strong>
+              <PublicQueueBrand profile={activeProfile} />
               <span>
                 Позиции в очереди могут меняться, т.к. система автоматически поднимает наверх тех, кто спел меньше, а
                 уже потом сортирует по времени заявки.
@@ -189,7 +197,7 @@ export function PublicQueuePage() {
       <section className="host-panel-page public-queue-shell">
         <div className="host-console-bar public-queue-topbar">
           <div className="host-console-bar__admin">
-            <strong>{activeProfile.title}</strong>
+            <PublicQueueBrand profile={activeProfile} />
             <span>
               Позиции прогнозные. Это не финальное место: очередь пересчитывается после новых заявок и выступлений.
             </span>
