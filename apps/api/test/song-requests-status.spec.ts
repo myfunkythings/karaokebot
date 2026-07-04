@@ -93,6 +93,9 @@ describe("SongRequestsService.getTelegramGuestStatusSummary", () => {
 
     expect(message).toContain("1. Guest song 1 — примерно через 2 трека.");
     expect(message).toContain("2. Guest song 2 — примерно через 3 трека.");
+    expect(message).toContain(
+      "Это не финальное место: очередь пересчитывается после новых заявок и выступлений."
+    );
   });
 
   it("explains when the guest is next", async () => {

@@ -104,6 +104,14 @@ function formatRequest(request: PublicSongRequestDto) {
   return request.rawText;
 }
 
+function formatViewerForecastSentence(forecastText: string) {
+  if (forecastText.startsWith("примерно")) {
+    return `Сейчас ваша песня прогнозно ${forecastText}.`;
+  }
+
+  return `Сейчас ваша песня: ${forecastText}.`;
+}
+
 function PublicQueueRow({ request, isNext = false }: { request: PublicSongRequestDto; isNext?: boolean }) {
   const rowClassName = [
     "public-queue-row",
@@ -183,8 +191,7 @@ export function PublicQueuePage() {
           <div className="host-console-bar__admin">
             <strong>{activeProfile.title}</strong>
             <span>
-              Очередь постоянно пересчитывается: когда кто-то споёт, его следующие заявки уходят ниже, а ваша позиция
-              может подняться выше.
+              Позиции прогнозные. Это не финальное место: очередь пересчитывается после новых заявок и выступлений.
             </span>
           </div>
 
@@ -205,8 +212,8 @@ export function PublicQueuePage() {
             <span>Ваша ближайшая песня</span>
             <strong>{formatRequest(snapshot.viewer.nearestRequest)}</strong>
             <p>
-              {snapshot.viewer.nearestRequest.forecastText}. После каждой исполненной песни очередь пересчитывается:
-              следующие заявки тех, кто уже пел, опускаются ниже, а ваши треки могут стать ближе.
+              {formatViewerForecastSentence(snapshot.viewer.nearestRequest.forecastText)} Это не финальное место:
+              очередь пересчитывается после новых заявок и выступлений.
             </p>
           </section>
         ) : null}

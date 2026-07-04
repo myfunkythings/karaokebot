@@ -39,6 +39,9 @@ type ForecastGuestStat = {
   sungCount: number;
 };
 
+const FORECAST_DISCLAIMER =
+  "Это не финальное место: очередь пересчитывается после новых заявок и выступлений.";
+
 @Injectable()
 export class SongRequestsService {
   constructor(
@@ -510,7 +513,7 @@ export class SongRequestsService {
       return `${index + 1}. ${title} — ${this.formatTracksAhead(tracksAhead)}.`;
     });
 
-    return ["Твои песни в очереди:", ...lines].join("\n");
+    return ["Твои песни в очереди:", ...lines, "", FORECAST_DISCLAIMER].join("\n");
   }
 
   private forecastTracksAheadByRequestId(input: {
