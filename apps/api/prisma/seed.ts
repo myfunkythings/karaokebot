@@ -47,7 +47,8 @@ const defaultSettings = {
     telegramCancelConfirmationMessage:
       "Точно удалить все твои заявки из очереди? Это действие нельзя отменить из Telegram.\n\nЕсли нажал случайно, выбери «Не удалять».",
     telegramCancelAbortMessage: "Ок, заявки оставил в очереди.",
-    telegramNextSongNotification: "Ваша песня следующая"
+    telegramNextSongNotification:
+      "🎤 Скоро ваш выход!\n\nПеред вами осталась одна песня. Пожалуйста, подготовьтесь и будьте рядом со сценой."
   },
   uiLabels: {
     next: "Следующий исполнитель",
