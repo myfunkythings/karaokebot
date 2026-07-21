@@ -35,7 +35,8 @@ function createQueueService() {
   const firstStillQueued = {
     id: "request-after-next",
     guestProfileId: "guest-after-next",
-    telegramUpdateId: "telegram-update-after-next"
+    telegramUpdateId: "telegram-update-after-next",
+    source: SongRequestSource.telegram
   };
 
   const tx = {
@@ -151,7 +152,8 @@ function createCallRequestService() {
       findFirst: vi.fn().mockResolvedValue({
         id: "request-next-after-call",
         guestProfileId: "guest-next-after-call",
-        telegramUpdateId: "telegram-update-next-after-call"
+        telegramUpdateId: "telegram-update-next-after-call",
+        source: SongRequestSource.telegram
       })
     },
     telegramUpdate: {
@@ -196,14 +198,14 @@ describe("QueueService next song Telegram notification", () => {
       where: {
         sessionId: "session-1",
         channelId: channel.id,
-        status: SongRequestStatus.queued,
-        source: SongRequestSource.telegram
+        status: SongRequestStatus.queued
       },
       orderBy: [{ queueRank: "asc" }, { requestedAt: "asc" }],
       select: {
         id: true,
         guestProfileId: true,
-        telegramUpdateId: true
+        telegramUpdateId: true,
+        source: true
       }
     });
     expect(prisma.telegramUpdate.findFirst).toHaveBeenCalledWith({
@@ -237,5 +239,31 @@ describe("QueueService next song Telegram notification", () => {
       "chat-next-after-call",
       "Сейчас началась песня перед вашей"
     );
+  });
+
+  it("does not notify a Telegram guest while a manual request is still before them", async () => {
+    const { prisma, service, telegramOutboundService } = createQueueService();
+    const manualRequest = {
+      id: "request-manual-next",
+      guestProfileId: "guest-manual-next",
+      telegramUpdateId: null,
+      source: SongRequestSource.manual
+    };
+    const laterTelegramRequest = {
+      id: "request-telegram-later",
+      guestProfileId: "guest-telegram-later",
+      telegramUpdateId: "telegram-update-later",
+      source: SongRequestSource.telegram
+    };
+
+    prisma.songRequest.findFirst.mockImplementation(async (args: { where?: { source?: SongRequestSource } }) =>
+      args.where?.source === SongRequestSource.telegram
+        ? laterTelegramRequest
+        : manualRequest
+    );
+
+    await service.moveToNextPerformer("staff-1", 7, "secondary");
+
+    expect(telegramOutboundService.sendMessage).not.toHaveBeenCalled();
   });
 });
