@@ -57,12 +57,18 @@ export const api = {
       }`
     ),
   getStats: () => apiFetch<SessionStatsDto | null>("/stats/active-session"),
-  getSettings: () => apiFetch<GlobalSettings>("/settings/global"),
-  updateSettings: (payload: Partial<GlobalSettings>) =>
-    apiFetch<GlobalSettings>("/settings/global", {
-      method: "PUT",
-      body: JSON.stringify(payload)
-    }),
+  getSettings: (channelSlug: string) =>
+    apiFetch<GlobalSettings>(
+      `/settings/global?channel=${encodeURIComponent(channelSlug)}`
+    ),
+  updateSettings: (payload: Partial<GlobalSettings>, channelSlug: string) =>
+    apiFetch<GlobalSettings>(
+      `/settings/global?channel=${encodeURIComponent(channelSlug)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify(payload)
+      }
+    ),
   openSession: (payload: { title?: string }) =>
     apiFetch("/sessions/open", {
       method: "POST",

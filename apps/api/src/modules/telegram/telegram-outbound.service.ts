@@ -22,7 +22,11 @@ export class TelegramOutboundService {
     keyboardRows?: TelegramKeyboardRow[]
   ) {
     const resolvedKeyboardRows =
-      keyboardRows ?? this.getDefaultKeyboardRows(channelSlug, await this.settingsService.getGlobalSettings());
+      keyboardRows ??
+      this.getDefaultKeyboardRows(
+        channelSlug,
+        await this.settingsService.getGlobalSettings(channelSlug)
+      );
     const token = this.getBotToken(channelSlug);
     if (!token || token === "replace-me") {
       this.logger.warn(

@@ -77,7 +77,13 @@ function createService() {
     telegramOutboundService as never
   );
 
-  return { prisma, service, songRequestsService, telegramOutboundService };
+  return {
+    prisma,
+    service,
+    songRequestsService,
+    settingsService,
+    telegramOutboundService
+  };
 }
 
 function makeUpdate(text: string) {
@@ -97,10 +103,16 @@ function makeUpdate(text: string) {
 
 describe("TelegramService status text handling", () => {
   it("answers 'моя позиция' through the channel status flow instead of creating a song request", async () => {
-    const { service, songRequestsService, telegramOutboundService } = createService();
+    const {
+      service,
+      songRequestsService,
+      settingsService,
+      telegramOutboundService
+    } = createService();
 
     await service.handleWebhook(makeUpdate("Позиция"), "secondary-secret", "secondary");
 
+    expect(settingsService.getGlobalSettings).toHaveBeenCalledWith("secondary");
     expect(songRequestsService.getTelegramGuestStatusSummary).toHaveBeenCalledWith(
       "400",
       "secondary"

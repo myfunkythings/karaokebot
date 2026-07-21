@@ -120,10 +120,10 @@ export class SongRequestsService {
     channelSlug?: string | null;
   }): Promise<TelegramCreateResult> {
     const session = await this.sessionsService.getActiveSession();
-    const settings = await this.settingsService.getGlobalSettings();
     const channel = await this.requestChannelsService.getRequiredChannelBySlug(
       input.channelSlug
     );
+    const settings = await this.settingsService.getGlobalSettings(channel.slug);
     const guest = await this.guestsService.upsertTelegramGuest({
       telegramUserId: input.telegramUserId,
       telegramUsername: input.telegramUsername,
@@ -302,8 +302,8 @@ export class SongRequestsService {
 
   async getTelegramGuestStatusSummary(telegramUserId: string, channelSlug?: string | null) {
     const session = await this.sessionsService.getActiveSession();
-    const settings = await this.settingsService.getGlobalSettings();
     const channel = await this.requestChannelsService.getRequiredChannelBySlug(channelSlug);
+    const settings = await this.settingsService.getGlobalSettings(channel.slug);
 
     if (!session) {
       return settings.botReplyTemplates.requestRejectedNoSession;
@@ -414,8 +414,8 @@ export class SongRequestsService {
     channelSlug?: string | null
   ) {
     const session = await this.sessionsService.getActiveSession();
-    const settings = await this.settingsService.getGlobalSettings();
     const channel = await this.requestChannelsService.getRequiredChannelBySlug(channelSlug);
+    const settings = await this.settingsService.getGlobalSettings(channel.slug);
 
     if (!session) {
       return settings.botReplyTemplates.requestRejectedNoSession;

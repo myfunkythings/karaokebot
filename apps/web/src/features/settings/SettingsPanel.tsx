@@ -71,10 +71,12 @@ const botReplyFields: Array<{
 
 export function SettingsPanel({
   settings,
-  canEdit
+  canEdit,
+  channelSlug
 }: {
   settings: GlobalSettings;
   canEdit: boolean;
+  channelSlug: string;
 }) {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState(settings);
@@ -84,9 +86,12 @@ export function SettingsPanel({
   }, [settings]);
 
   const mutation = useMutation({
-    mutationFn: api.updateSettings,
+    mutationFn: (payload: Partial<GlobalSettings>) =>
+      api.updateSettings(payload, channelSlug),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["settings", "global"] });
+      await queryClient.invalidateQueries({
+        queryKey: ["settings", "global", channelSlug]
+      });
     }
   });
 

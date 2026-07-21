@@ -54,12 +54,12 @@ function createService({
     requestChannelsService as never
   );
 
-  return { prisma, service };
+  return { prisma, service, settingsService };
 }
 
 describe("SongRequestsService.getTelegramGuestStatusSummary", () => {
   it("lists all queued songs for the guest with positions and approximate tracks ahead", async () => {
-    const { service } = createService({
+    const { service, settingsService } = createService({
       activeCurrent: { id: "current-1", guestProfileId: "guest-3" },
       queuedRequests: [
         {
@@ -91,6 +91,7 @@ describe("SongRequestsService.getTelegramGuestStatusSummary", () => {
 
     const message = await service.getTelegramGuestStatusSummary("400", "secondary");
 
+    expect(settingsService.getGlobalSettings).toHaveBeenCalledWith("secondary");
     expect(message).toContain("1. Guest song 1 — примерно через 2 трека.");
     expect(message).toContain("2. Guest song 2 — примерно через 3 трека.");
     expect(message).toContain(

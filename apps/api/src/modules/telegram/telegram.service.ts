@@ -111,7 +111,7 @@ export class TelegramService implements OnApplicationBootstrap {
     }
 
     try {
-      const settings = await this.settingsService.getGlobalSettings();
+      const settings = await this.settingsService.getGlobalSettings(channel.slug);
       let replyText = "";
       let keyboardRows = this.getDefaultKeyboardRows(
         channel.slug,
@@ -213,7 +213,7 @@ export class TelegramService implements OnApplicationBootstrap {
   async getBotReplyTemplates(providedSecret?: string, channelSlug?: string | null) {
     const channel = await this.requestChannelsService.getRequiredChannelBySlug(channelSlug);
     this.assertSecret(channel.slug, providedSecret);
-    const settings = await this.settingsService.getGlobalSettings();
+    const settings = await this.settingsService.getGlobalSettings(channel.slug);
 
     return {
       ok: true,

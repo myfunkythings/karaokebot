@@ -1183,7 +1183,7 @@ export class QueueService {
       return;
     }
 
-    const settings = await this.settingsService.getGlobalSettings();
+    const settings = await this.settingsService.getGlobalSettings(channelSlug);
     await this.telegramOutboundService.sendMessage(
       channelSlug,
       telegramUpdate.telegramChatId,
