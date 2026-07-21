@@ -110,7 +110,6 @@ export function HostPanelPage({
     return accumulator;
   }, {});
   const nextRequest = snapshot.queued[0] ?? null;
-  const needsReviewCount = snapshot.queued.filter((item) => item.needsReview).length;
   const nextActionDisabled =
     !canManage || !snapshot.session || (!snapshot.current && !snapshot.queued.length) || nextMutation.isPending;
 
@@ -261,13 +260,6 @@ export function HostPanelPage({
             <strong>{nextRequest?.guest.displayName ?? "Очередь пуста"}</strong>
             <small className="operational-toolbar__fact-meta">{getRequestSongLabel(nextRequest)}</small>
           </div>
-          <div className="operational-toolbar__fact">
-            <span>Проверить</span>
-            <strong>{needsReviewCount}</strong>
-            <small className="operational-toolbar__fact-meta">
-              {needsReviewCount ? "неясных заявок" : "всё чисто"}
-            </small>
-          </div>
         </div>
         <div className="operational-toolbar__actions">
           <button
@@ -302,31 +294,6 @@ export function HostPanelPage({
           </button>
         </section>
       ) : null}
-
-      <section className="operator-presence-panel">
-        <div>
-          <span className="operator-presence-panel__label">В смене сейчас</span>
-          <strong>
-            {snapshot.activeOperators.length
-              ? snapshot.activeOperators.map((operator) => operator.displayName).join(", ")
-              : "только вы"}
-          </strong>
-        </div>
-        <div>
-          <span className="operator-presence-panel__label">Последние действия</span>
-          <ul>
-            {snapshot.recentActions.length ? (
-              snapshot.recentActions.slice(0, 3).map((action) => (
-                <li key={action.id}>
-                  <strong>{action.actorDisplayName}</strong> {action.label}
-                </li>
-              ))
-            ) : (
-              <li>Пока действий нет</li>
-            )}
-          </ul>
-        </div>
-      </section>
 
       <section className="queue-panel">
         <QueueTable

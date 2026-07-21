@@ -94,27 +94,6 @@ function isInteractiveTarget(target: EventTarget | null) {
   return target instanceof Element && Boolean(target.closest("button, input, textarea, select, a, [contenteditable='true']"));
 }
 
-function getQueueBadge(row: QueueRowData, currentRequestId: string | null) {
-  if (row.request.id === currentRequestId) {
-    return {
-      label: "Сейчас поёт",
-      className: "queue-status queue-status--current"
-    };
-  }
-
-  if (row.queueIndex === 0) {
-    return {
-      label: "Следующий",
-      className: "queue-status queue-status--next"
-    };
-  }
-
-  return {
-    label: "В очереди",
-    className: "queue-status"
-  };
-}
-
 async function copyRequest(rawText: string, onCopied: (message: string) => void) {
   const copiedValue = buildKaraokeCopyText(rawText);
 
@@ -134,10 +113,6 @@ function getRowClassName(row: QueueRowData, isDragging = false) {
     classNames.push("queue-table__row--current");
   }
 
-  if (row.request.needsReview) {
-    classNames.push("queue-table__row--needs-review");
-  }
-
   if (row.status === "next") {
     classNames.push("queue-table__row--next");
   }
@@ -151,7 +126,6 @@ function getRowClassName(row: QueueRowData, isDragging = false) {
 
 function QueueTableRowCells({
   row,
-  currentRequestId,
   dragHandle,
   canManage,
   editingRequestId,
@@ -164,12 +138,10 @@ function QueueTableRowCells({
   onSaveRequestText
 }: QueueRowActions & {
   row: QueueRowData;
-  currentRequestId: string | null;
   dragHandle: ReactNode;
 }) {
   const isCurrent = row.status === "current";
   const canReorder = !isCurrent;
-  const queueBadge = getQueueBadge(row, currentRequestId);
 
   return (
     <>
@@ -194,20 +166,6 @@ function QueueTableRowCells({
           }}
         />
         <span className="queue-table__request-meta">{getRowMeta(row)}</span>
-        <span className="request-channel-badge">
-          <span
-            className="request-channel-badge__dot"
-            style={{ background: row.request.channel.color ?? "#58707b" }}
-            aria-hidden="true"
-          />
-          {row.request.channel.name}
-        </span>
-        <span className={queueBadge.className}>{queueBadge.label}</span>
-        {row.request.needsReview ? (
-          <span className="queue-table__review-badge" title="Заявка пришла без понятного разделения на исполнителя и песню">
-            Проверить
-          </span>
-        ) : null}
       </td>
       <td data-label="Гость">
         <div className="queue-guest-cell">
@@ -239,14 +197,12 @@ function QueueTableRowCells({
 
 function StaticQueueTableRow({
   row,
-  currentRequestId,
   ...actions
-}: QueueRowActions & { row: QueueRowData; currentRequestId: string | null }) {
+}: QueueRowActions & { row: QueueRowData }) {
   return (
     <tr className={getRowClassName(row)}>
       <QueueTableRowCells
         row={row}
-        currentRequestId={currentRequestId}
         dragHandle={<span className="queue-table__drag-handle-placeholder" aria-hidden="true" />}
         {...actions}
       />
@@ -256,9 +212,8 @@ function StaticQueueTableRow({
 
 function SortableQueueTableRow({
   row,
-  currentRequestId,
   ...actions
-}: QueueRowActions & { row: QueueRowData; currentRequestId: string | null }) {
+}: QueueRowActions & { row: QueueRowData }) {
   const { attributes, listeners, setActivatorNodeRef, setNodeRef, transform, transition, isDragging } =
     useSortable({
       id: row.request.id
@@ -290,7 +245,6 @@ function SortableQueueTableRow({
     >
       <QueueTableRowCells
         row={row}
-        currentRequestId={currentRequestId}
         dragHandle={
           <button
             ref={setActivatorNodeRef}
@@ -377,7 +331,6 @@ export function QueueTable({
 
     return visibleRows;
   }, [currentRequest, requests, sungCountByGuestId]);
-  const currentRequestId = currentRequest?.id ?? null;
   const rowActions: QueueRowActions = {
     canManage,
     editingRequestId,
@@ -430,19 +383,19 @@ export function QueueTable({
               ) : dragEnabled ? (
                 <>
                   {currentRow ? (
-                    <StaticQueueTableRow row={currentRow} currentRequestId={currentRequestId} {...rowActions} />
+                    <StaticQueueTableRow row={currentRow} {...rowActions} />
                   ) : null}
                   <SortableContext items={requests.map((request) => request.id)} strategy={verticalListSortingStrategy}>
                     {rows
                       .filter((row) => row.status !== "current")
                       .map((row) => (
-                        <SortableQueueTableRow key={row.request.id} row={row} currentRequestId={currentRequestId} {...rowActions} />
+                        <SortableQueueTableRow key={row.request.id} row={row} {...rowActions} />
                       ))}
                   </SortableContext>
                 </>
               ) : (
                 rows.map((row) => (
-                  <StaticQueueTableRow key={row.request.id} row={row} currentRequestId={currentRequestId} {...rowActions} />
+                  <StaticQueueTableRow key={row.request.id} row={row} {...rowActions} />
                 ))
               )}
             </tbody>
