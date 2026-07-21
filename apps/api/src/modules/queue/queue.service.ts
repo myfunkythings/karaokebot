@@ -1149,18 +1149,18 @@ export class QueueService {
       where: {
         sessionId,
         channelId,
-        status: SongRequestStatus.queued,
-        source: SongRequestSource.telegram
+        status: SongRequestStatus.queued
       },
       orderBy: [{ queueRank: "asc" }, { requestedAt: "asc" }],
       select: {
         id: true,
         guestProfileId: true,
-        telegramUpdateId: true
+        telegramUpdateId: true,
+        source: true
       }
     });
 
-    if (!nextQueued) {
+    if (!nextQueued || nextQueued.source !== SongRequestSource.telegram) {
       return;
     }
 
