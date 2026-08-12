@@ -9,6 +9,16 @@ import { getActiveBotProfile, getRuntimeRouterBase } from "./botProfiles";
 
 const appBase = getRuntimeRouterBase();
 const activeBotProfile = getActiveBotProfile();
+const rootElement =
+  activeBotProfile.adminPath === "/" ? (
+    <RequireAuth>
+      <DashboardPage />
+    </RequireAuth>
+  ) : activeBotProfile.publicPath === "/" ? (
+    <PublicQueuePage />
+  ) : (
+    <Navigate to={activeBotProfile.adminPath} replace />
+  );
 
 export const router = createBrowserRouter([
   {
@@ -17,7 +27,7 @@ export const router = createBrowserRouter([
   },
   {
     path: "/",
-    element: activeBotProfile.publicPath === "/" ? <PublicQueuePage /> : <Navigate to={activeBotProfile.adminPath} replace />
+    element: rootElement
   },
   {
     path: "/admin",

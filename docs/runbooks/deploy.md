@@ -41,6 +41,7 @@ This is the project-default deploy path and should be preferred over ad hoc manu
    - `SESSION_SECRET`
    - `TELEGRAM_BOT_TOKEN`
    - `TELEGRAM_WEBHOOK_SECRET`
+   - `TELEGRAM_PETYA_BOT_TOKEN` and `TELEGRAM_PETYA_WEBHOOK_SECRET` when the Petya bot is enabled
    - owner credentials
 
 ## 3. Start the stack
@@ -82,6 +83,8 @@ curl "https://api.telegram.org/bot$TELEGRAM_BOT_TOKEN/setWebhook" \
 
 The production stack in this repository is served under the `/karaoke` path prefix, so the
 Telegram webhook must point to `/karaoke/api/telegram/webhook`, not `/api/telegram/webhook`.
+Petya uses `/karaoke/api/telegram/petya/webhook`; its admin SPA is mounted separately at
+`/karaoke-petya/` and must be routed to the same web container by the production reverse proxy.
 
 ## 6. Backup routine
 
