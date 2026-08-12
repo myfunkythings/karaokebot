@@ -70,6 +70,12 @@ const defaultChannels = [
     name: "Второй бот",
     color: "#DE7440",
     sortOrder: 20
+  },
+  {
+    slug: "petya",
+    name: "Петя",
+    color: "#6D5BD0",
+    sortOrder: 30
   }
 ];
 
