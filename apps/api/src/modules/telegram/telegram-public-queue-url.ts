@@ -1,8 +1,11 @@
 export function getTelegramPublicQueueUrl(channelSlug: string, guestToken?: string | null) {
-  const url =
+  const url = new URL(
     channelSlug === "secondary"
-      ? new URL("https://zapoi.john-doe.ru/")
-      : new URL("https://calc1.printninjas.ru/karaoke/queue/mishka");
+      ? "https://zapoi.john-doe.ru/"
+      : channelSlug === "petya"
+        ? "https://calc1.printninjas.ru/karaoke-petya/queue"
+        : "https://calc1.printninjas.ru/karaoke/queue/mishka"
+  );
 
   if (guestToken) {
     url.searchParams.set("guest", guestToken);
