@@ -6,6 +6,7 @@ import { SettingsPage } from "../pages/SettingsPage";
 import { PublicQueuePage } from "../pages/PublicQueuePage";
 import { RequireAuth } from "../features/auth/RequireAuth";
 import { getActiveBotProfile, getRuntimeRouterBase } from "./botProfiles";
+import { publicQueueRoutePaths } from "./routerPaths";
 
 const appBase = getRuntimeRouterBase();
 const activeBotProfile = getActiveBotProfile();
@@ -45,10 +46,10 @@ export const router = createBrowserRouter([
       </RequireAuth>
     )
   },
-  {
-    path: "/queue/:botSlug",
+  ...publicQueueRoutePaths.map((path) => ({
+    path,
     element: <PublicQueuePage />
-  },
+  })),
   {
     path: "/archive",
     element: (
