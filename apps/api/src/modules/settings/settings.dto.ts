@@ -100,6 +100,20 @@ class BotReplyTemplatesDto {
   telegramNextSongNotification!: string;
 }
 
+class PublicQueueAppearanceDto {
+  @IsString()
+  backgroundColor!: string;
+
+  @IsString()
+  surfaceColor!: string;
+
+  @IsString()
+  accentColor!: string;
+
+  @IsString()
+  textColor!: string;
+}
+
 export class UpdateSettingsDto {
   @IsOptional()
   @IsInt()
@@ -124,4 +138,9 @@ export class UpdateSettingsDto {
   @IsOptional()
   @IsObject()
   uiLabels?: Record<string, string>;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => PublicQueueAppearanceDto)
+  publicQueueAppearance?: PublicQueueAppearanceDto;
 }

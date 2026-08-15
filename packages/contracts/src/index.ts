@@ -171,12 +171,27 @@ export const DEFAULT_UI_LABELS: Record<string, string> = {
   "public.count": "{{count}} заявок"
 };
 
+export type PublicQueueAppearance = {
+  backgroundColor: string;
+  surfaceColor: string;
+  accentColor: string;
+  textColor: string;
+};
+
+export const DEFAULT_PUBLIC_QUEUE_APPEARANCE: PublicQueueAppearance = {
+  backgroundColor: "#f4f6f6",
+  surfaceColor: "#fff8f2",
+  accentColor: "#dc8056",
+  textColor: "#173c45"
+};
+
 export type GlobalSettings = {
   antiSpamSeconds: number;
   skipDownPositions: number;
   queuePolicyFlags: QueuePolicyFlags;
   botReplyTemplates: BotReplyTemplates;
   uiLabels: Record<string, string>;
+  publicQueueAppearance: PublicQueueAppearance;
 };
 
 export type SessionSummary = {
@@ -241,6 +256,7 @@ export type PublicQueueSnapshotDto = {
   isOpen: boolean;
   activeChannel: Pick<RequestChannelDto, "color">;
   uiLabels: Record<string, string>;
+  publicQueueAppearance: PublicQueueAppearance;
   current: PublicSongRequestDto | null;
   queued: PublicSongRequestDto[];
   viewer: {

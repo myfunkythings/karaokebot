@@ -38,8 +38,16 @@ declare module "@karaoke/contracts" {
       telegramNextSongNotification: string;
     };
     uiLabels: Record<string, string>;
+    publicQueueAppearance: PublicQueueAppearance;
   };
   export const DEFAULT_UI_LABELS: Record<string, string>;
+  export type PublicQueueAppearance = {
+    backgroundColor: string;
+    surfaceColor: string;
+    accentColor: string;
+    textColor: string;
+  };
+  export const DEFAULT_PUBLIC_QUEUE_APPEARANCE: PublicQueueAppearance;
 
   export type LoginResponseDto = {
     user: {
@@ -137,6 +145,7 @@ declare module "@karaoke/contracts" {
     isOpen: boolean;
     activeChannel: Pick<RequestChannelDto, "color">;
     uiLabels: Record<string, string>;
+    publicQueueAppearance: PublicQueueAppearance;
     current: PublicSongRequestDto | null;
     queued: PublicSongRequestDto[];
     viewer: {

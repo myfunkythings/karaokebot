@@ -67,4 +67,32 @@ describe("SettingsService channel-scoped bot replies", () => {
       expect.objectContaining({ where: { key: "botReplyTemplates" } })
     );
   });
+
+  it("stores public queue appearance for the guest-facing page", async () => {
+    const upsert = vi.fn().mockResolvedValue({});
+    const prisma = {
+      setting: {
+        findMany: vi.fn().mockResolvedValue([]),
+        upsert
+      }
+    };
+    const service = new SettingsService(prisma as never);
+    const appearance = {
+      ...DEFAULT_SETTINGS.publicQueueAppearance,
+      accentColor: "#9f5fdd"
+    };
+
+    await service.updateGlobalSettings(
+      { publicQueueAppearance: appearance },
+      "staff-1",
+      "main"
+    );
+
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { key: "publicQueueAppearance" },
+        update: expect.objectContaining({ valueJson: appearance })
+      })
+    );
+  });
 });

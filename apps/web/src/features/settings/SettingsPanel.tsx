@@ -180,6 +180,13 @@ function valuesChanged(left: Record<string, string>, right: Record<string, strin
   return Object.keys(left).some((key) => left[key] !== right[key]);
 }
 
+const publicAppearanceFields: Array<{ key: keyof GlobalSettings["publicQueueAppearance"]; label: string; hint: string }> = [
+  { key: "backgroundColor", label: "Фон страницы", hint: "Пространство вокруг карточек" },
+  { key: "surfaceColor", label: "Фон карточек", hint: "Карточка гостя и выделенная строка" },
+  { key: "accentColor", label: "Акцент", hint: "Номер, выделение и важные элементы" },
+  { key: "textColor", label: "Основной текст", hint: "Заголовки и названия песен" }
+];
+
 export function SettingsPanel({
   settings,
   canEdit,
@@ -209,14 +216,18 @@ export function SettingsPanel({
   const selectedGroup = visibleGroups.find((group) => group.id === activeGroup) ?? visibleGroups[0];
   const textChanges = valuesChanged(draft.uiLabels, settings.uiLabels);
   const botChanges = valuesChanged(draft.botReplyTemplates, settings.botReplyTemplates);
+  const appearanceChanged = publicAppearanceFields.some(
+    ({ key }) => draft.publicQueueAppearance[key] !== settings.publicQueueAppearance[key]
+  );
   const rulesChanged = draft.antiSpamSeconds !== settings.antiSpamSeconds || draft.skipDownPositions !== settings.skipDownPositions ||
     Object.keys(draft.queuePolicyFlags).some((key) => draft.queuePolicyFlags[key as keyof GlobalSettings["queuePolicyFlags"]] !== settings.queuePolicyFlags[key as keyof GlobalSettings["queuePolicyFlags"]]);
-  const hasChanges = textChanges || botChanges || rulesChanged;
+  const hasChanges = textChanges || botChanges || appearanceChanged || rulesChanged;
 
   function save() {
     mutation.mutate({
       ...(textChanges ? { uiLabels: draft.uiLabels } : {}),
       ...(botChanges ? { botReplyTemplates: draft.botReplyTemplates } : {}),
+      ...(appearanceChanged ? { publicQueueAppearance: draft.publicQueueAppearance } : {}),
       ...(rulesChanged ? {
         antiSpamSeconds: draft.antiSpamSeconds,
         skipDownPositions: draft.skipDownPositions,
@@ -227,6 +238,16 @@ export function SettingsPanel({
 
   function updateLabel(key: string, value: string) {
     setDraft((current) => ({ ...current, uiLabels: { ...current.uiLabels, [key]: value } }));
+  }
+
+  function updatePublicAppearance(
+    key: keyof GlobalSettings["publicQueueAppearance"],
+    value: string
+  ) {
+    setDraft((current) => ({
+      ...current,
+      publicQueueAppearance: { ...current.publicQueueAppearance, [key]: value }
+    }));
   }
 
   return (
@@ -267,6 +288,26 @@ export function SettingsPanel({
             <section className="settings-copy-editor__content">
               {selectedGroup ? <>
                 <div className="settings-copy-editor__heading"><div><h3>{selectedGroup.title}</h3><p>{selectedGroup.description}</p></div><span>{selectedGroup.fields.length} текстов</span></div>
+                {selectedGroup.id === "public" ? (
+                  <section className="settings-appearance-card">
+                    <div>
+                      <span className="eyebrow">Внешний вид</span>
+                      <h4>Оформление публичной очереди</h4>
+                      <p>Изменения видны гостям по ссылке на очередь после сохранения.</p>
+                    </div>
+                    <div className="settings-appearance-grid">
+                      {publicAppearanceFields.map(({ key, label, hint }) => (
+                        <label className="settings-color-field" key={key}>
+                          <span><strong>{label}</strong><small>{hint}</small></span>
+                          <span className="settings-color-field__control">
+                            <input type="color" value={draft.publicQueueAppearance[key]} disabled={!canEdit} onChange={(event) => updatePublicAppearance(key, event.target.value)} />
+                            <input value={draft.publicQueueAppearance[key]} disabled={!canEdit} onChange={(event) => updatePublicAppearance(key, event.target.value)} aria-label={label} />
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </section>
+                ) : null}
                 <div className="settings-text-list">
                   {selectedGroup.fields.map((field) => (
                     <label className="settings-text-card" key={field.key}>

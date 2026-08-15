@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { QueueService } from "../src/modules/queue/queue.service.js";
 import { createPublicQueueGuestToken } from "../src/modules/telegram/public-queue-guest-token.js";
-import { DEFAULT_UI_LABELS } from "@karaoke/contracts";
+import { DEFAULT_PUBLIC_QUEUE_APPEARANCE, DEFAULT_UI_LABELS } from "@karaoke/contracts";
 
 const tokenSecret = "test-session-secret";
 
@@ -150,6 +150,7 @@ describe("QueueService public snapshot", () => {
         status: "queued"
       }
     ]);
+    expect(snapshot.publicQueueAppearance).toEqual(DEFAULT_PUBLIC_QUEUE_APPEARANCE);
     expect(snapshot.viewer).toBeNull();
     expect(serializedSnapshot).not.toContain("guest");
     expect(serializedSnapshot).not.toContain("telegram");

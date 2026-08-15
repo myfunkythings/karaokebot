@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
+import type { CSSProperties } from "react";
 import {
+  DEFAULT_PUBLIC_QUEUE_APPEARANCE,
   DEFAULT_UI_LABELS,
   type PublicQueueSnapshotDto,
   type PublicSongRequestDto
@@ -15,6 +17,7 @@ const mockPublicQueueSnapshot: PublicQueueSnapshotDto = {
     color: "#203B47"
   },
   uiLabels: DEFAULT_UI_LABELS,
+  publicQueueAppearance: DEFAULT_PUBLIC_QUEUE_APPEARANCE,
   current: {
     position: null,
     rawText: "Queen - The Show Must Go On",
@@ -118,12 +121,15 @@ function formatViewerForecastSentence(forecastText: string, text: ReturnType<typ
   return text("public.forecastCurrent", { forecast: forecastText });
 }
 
-function PublicQueueBrand({ profile }: { profile: ReturnType<typeof getActiveBotProfile> }) {
-  if (profile.slug === "zapoi") {
-    return <img className="public-queue-logo" src="/sanatorium-john-doe-logo.png" alt={profile.title} />;
-  }
+function PublicQueueBrand() {
+  const text = useUiCopy();
 
-  return <strong className="public-queue-title">{profile.title}</strong>;
+  return (
+    <div className="public-queue-brand">
+      <span>{text("brand.eyebrow")}</span>
+      <strong className="public-queue-title">{text("brand.title")}</strong>
+    </div>
+  );
 }
 
 function PublicQueueRow({ request, isNext = false }: { request: PublicSongRequestDto; isNext?: boolean }) {
@@ -186,7 +192,7 @@ export function PublicQueuePage() {
         <section className="host-panel-page public-queue-shell">
           <div className="host-console-bar public-queue-topbar">
             <div className="host-console-bar__admin">
-              <PublicQueueBrand profile={activeProfile} />
+              <strong className="public-queue-title">{activeProfile.title}</strong>
               <span>
                 Позиции в очереди могут меняться, т.к. система автоматически поднимает наверх тех, кто спел меньше, а
                 уже потом сортирует по времени заявки.
@@ -210,13 +216,19 @@ function PublicQueueContent({
   activeProfile: ReturnType<typeof getActiveBotProfile>;
 }) {
   const text = useUiCopy();
+  const publicQueueStyle = {
+    "--public-queue-background": snapshot.publicQueueAppearance.backgroundColor,
+    "--public-queue-surface": snapshot.publicQueueAppearance.surfaceColor,
+    "--public-queue-accent": snapshot.publicQueueAppearance.accentColor,
+    "--public-queue-text": snapshot.publicQueueAppearance.textColor
+  } as CSSProperties;
 
   return (
-    <main className={`page-shell public-queue-page ${activeProfile.themeClassName}`}>
+    <main className={`page-shell public-queue-page ${activeProfile.themeClassName}`} style={publicQueueStyle}>
       <section className="host-panel-page public-queue-shell">
         <div className="host-console-bar public-queue-topbar">
           <div className="host-console-bar__admin">
-            <PublicQueueBrand profile={activeProfile} />
+            <PublicQueueBrand />
             <span>
               {text("public.priorityNotice")}
             </span>

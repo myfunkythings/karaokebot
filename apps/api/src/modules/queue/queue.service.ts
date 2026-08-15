@@ -13,11 +13,12 @@ import {
   SongRequestSource,
   SongRequestStatus
 } from "@prisma/client";
-import type {
-  PublicQueueSnapshotDto,
-  PublicSongRequestDto,
-  QueuePolicyFlags,
-  QueueSnapshotDto
+import {
+  DEFAULT_PUBLIC_QUEUE_APPEARANCE,
+  type PublicQueueSnapshotDto,
+  type PublicSongRequestDto,
+  type QueuePolicyFlags,
+  type QueueSnapshotDto
 } from "@karaoke/contracts";
 import { PrismaService } from "../../common/db/prisma.service.js";
 import { toPublicSongRequestDto, toSongRequestDto } from "../../common/utils/song-request.mapper.js";
@@ -72,6 +73,8 @@ export class QueueService {
           color: channel.color
         },
         uiLabels: this.getPublicUiLabels(settings.uiLabels),
+        publicQueueAppearance:
+          settings.publicQueueAppearance ?? DEFAULT_PUBLIC_QUEUE_APPEARANCE,
         current: null,
         queued: [],
         viewer: null,
@@ -153,6 +156,8 @@ export class QueueService {
         color: channel.color
       },
       uiLabels: this.getPublicUiLabels(settings.uiLabels),
+      publicQueueAppearance:
+        settings.publicQueueAppearance ?? DEFAULT_PUBLIC_QUEUE_APPEARANCE,
       current: currentDto,
       queued: queuedDto,
       viewer: viewerGuestId
@@ -186,7 +191,12 @@ export class QueueService {
   private getPublicUiLabels(labels: Record<string, string>) {
     return Object.fromEntries(
       Object.entries(labels).filter(
-        ([key]) => key.startsWith("public.") || key === "queue.shiftActive" || key === "queue.shiftInactive"
+        ([key]) =>
+          key.startsWith("public.") ||
+          key === "queue.shiftActive" ||
+          key === "queue.shiftInactive" ||
+          key === "brand.eyebrow" ||
+          key === "brand.title"
       )
     );
   }

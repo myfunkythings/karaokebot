@@ -43,6 +43,12 @@ export class SettingsService {
             ...(setting.valueJson as GlobalSettings["uiLabels"])
           };
           break;
+        case "publicQueueAppearance":
+          merged.publicQueueAppearance = {
+            ...merged.publicQueueAppearance,
+            ...(setting.valueJson as GlobalSettings["publicQueueAppearance"])
+          };
+          break;
         default:
           break;
       }
@@ -91,6 +97,10 @@ export class SettingsService {
       uiLabels: {
         ...current.uiLabels,
         ...update.uiLabels
+      },
+      publicQueueAppearance: {
+        ...current.publicQueueAppearance,
+        ...update.publicQueueAppearance
       }
     };
 
