@@ -1,5 +1,6 @@
 import { SectionCard, StatTile } from "@karaoke/ui";
 import type { QueueSnapshotDto, SessionStatsDto } from "@karaoke/contracts";
+import { useUiCopy } from "../../shared/ui/ui-copy";
 
 export function StatsPanel({
   snapshot,
@@ -8,27 +9,28 @@ export function StatsPanel({
   snapshot: QueueSnapshotDto;
   stats: SessionStatsDto | null;
 }) {
+  const text = useUiCopy();
   return (
-    <SectionCard title="Сводка смены">
+    <SectionCard title={text("stats.title")}>
       <div className="stats-grid">
-        <StatTile label="Заявок за смену" value={snapshot.stats.totalRequests} />
-        <StatTile label="Исполнено" value={snapshot.stats.totalSung} />
-        <StatTile label="Не дошли до сцены" value={snapshot.stats.totalCancelled} />
-        <StatTile label="Среднее ожидание" value={`${snapshot.stats.averageWaitMinutes} мин`} />
+        <StatTile label={text("stats.requests")} value={snapshot.stats.totalRequests} />
+        <StatTile label={text("stats.sung")} value={snapshot.stats.totalSung} />
+        <StatTile label={text("stats.cancelled")} value={snapshot.stats.totalCancelled} />
+        <StatTile label={text("stats.averageWait")} value={text("stats.averageWaitValue", { minutes: snapshot.stats.averageWaitMinutes })} />
       </div>
       <div className="stack stack--dense">
-        <h3>Кто уже пел чаще всего</h3>
+        <h3>{text("stats.topSingers")}</h3>
         {stats?.topSingers.length ? (
           stats.topSingers.map((singer) => (
             <div className="leader-row" key={singer.guestId}>
               <strong>{singer.displayName}</strong>
               <span className="muted">
-                {singer.sungCount} выход(а) на сцену из {singer.requestsCount} заявок
+                {text("stats.singerSummary", { sung: singer.sungCount, requests: singer.requestsCount })}
               </span>
             </div>
           ))
         ) : (
-          <div className="empty-state empty-state--inline">Статистика по гостям появится после первых исполнений.</div>
+          <div className="empty-state empty-state--inline">{text("stats.empty")}</div>
         )}
       </div>
     </SectionCard>

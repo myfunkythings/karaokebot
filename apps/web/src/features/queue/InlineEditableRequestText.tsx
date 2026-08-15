@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useUiCopy } from "../../shared/ui/ui-copy";
 
 function buildKaraokeCopyText(value: string) {
   const trimmedValue = value.trim();
@@ -83,6 +84,7 @@ export function InlineEditableRequestText({
   onStartEditing?: () => void;
   onCancelEditing?: () => void;
 }) {
+  const text = useUiCopy();
   const [internalEditing, setInternalEditing] = useState(false);
   const [draftValue, setDraftValue] = useState(value);
   const [isSaving, setIsSaving] = useState(false);
@@ -92,7 +94,7 @@ export function InlineEditableRequestText({
   const isControlled = typeof controlledEditing === "boolean";
   const isEditing = isControlled ? controlledEditing : internalEditing;
   const shouldUseTextarea = draftValue.length > 72 || draftValue.includes("\n");
-  const placeholderText = "Пустая заявка";
+  const placeholderText = text("queue.editEmpty");
 
   useEffect(() => {
     if (!isEditing) {
@@ -235,8 +237,8 @@ export function InlineEditableRequestText({
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => void handleSave()}
               disabled={isSaving || !draftValue.trim()}
-              aria-label="Сохранить заявку"
-              title="Сохранить"
+              aria-label={text("queue.editSave")}
+              title={text("queue.editSave")}
             >
               <CheckIcon />
             </button>
@@ -246,8 +248,8 @@ export function InlineEditableRequestText({
               onMouseDown={(event) => event.preventDefault()}
               onClick={handleCancel}
               disabled={isSaving}
-              aria-label="Отменить редактирование"
-              title="Отменить"
+              aria-label={text("queue.editCancel")}
+              title={text("queue.editCancel")}
             >
               <CloseIcon />
             </button>
@@ -261,7 +263,7 @@ export function InlineEditableRequestText({
             className="inline-request-text__copy-button"
             onClick={openEditing}
             disabled={disabled}
-            title="Редактировать заявку"
+            title={text("queue.editStart")}
           >
             <span className={value.trim() ? "inline-request-text__value" : "inline-request-text__value inline-request-text__value--placeholder"}>
               {value.trim() || placeholderText}
@@ -274,8 +276,8 @@ export function InlineEditableRequestText({
                 type="button"
                 className="inline-request-text__icon-button"
                 onClick={openEditing}
-                aria-label="Редактировать заявку"
-                title="Редактировать"
+                aria-label={text("queue.editStart")}
+                title={text("queue.editStart")}
               >
                 <PencilIcon />
               </button>

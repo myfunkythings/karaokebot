@@ -22,6 +22,7 @@ import {
   writeTextToClipboard
 } from "./InlineEditableRequestText";
 import { RowActionsMenu } from "./RowActionsMenu";
+import { useUiCopy } from "../../shared/ui/ui-copy";
 
 type QueueRowStatus = "current" | "queued";
 
@@ -83,15 +84,15 @@ function getVisualStatus(
   return "queued";
 }
 
-async function copyRequest(rawText: string, onCopied: (message: string) => void) {
+async function copyRequest(rawText: string, text: ReturnType<typeof useUiCopy>, onCopied: (message: string) => void) {
   const copiedValue = buildKaraokeCopyText(rawText);
 
   try {
     await writeTextToClipboard(copiedValue);
-    onCopied(`Скопировано: ${copiedValue}`);
+    onCopied(text("queue.copySuccess", { request: copiedValue }));
   } catch (error) {
     console.error(error);
-    onCopied("Не удалось скопировать заявку");
+    onCopied(text("queue.copyError"));
   }
 }
 
@@ -125,6 +126,7 @@ function QueueTableRowCells({
   row: QueueRowData;
   dragHandle: ReactNode;
 }) {
+  const text = useUiCopy();
   const isCurrent = row.status === "current";
   const canReorder = !isCurrent;
 
@@ -147,15 +149,17 @@ function QueueTableRowCells({
           onSave={async (nextValue) => {
             await onSaveRequestText(row.request.id, nextValue);
             setEditingRequestId(null);
-            onCopied("Заявка обновлена");
+            onCopied(text("queue.requestUpdated"));
           }}
         />
-        <span className="queue-table__request-meta">Поступила в {getCreatedAtLabel(row.request.requestedAt)}</span>
+        <span className="queue-table__request-meta">
+          {text("queue.receivedAt", { time: getCreatedAtLabel(row.request.requestedAt) })}
+        </span>
       </td>
       <td>
         <div className="queue-guest-cell">
           <strong>{row.request.guest.displayName}</strong>
-          <span>{row.request.guest.telegramUsername ? `@${row.request.guest.telegramUsername}` : "Добавлен вручную"}</span>
+          <span>{row.request.guest.telegramUsername ? `@${row.request.guest.telegramUsername}` : text("queue.manualSource")}</span>
         </div>
       </td>
       <td className="queue-sung-cell">{row.sungCount}</td>
@@ -168,7 +172,7 @@ function QueueTableRowCells({
             canReorder={canReorder}
             canCall={!isCurrent}
             onEdit={() => setEditingRequestId(row.request.id)}
-            onCopy={() => void copyRequest(row.request.rawText, onCopied)}
+            onCopy={() => void copyRequest(row.request.rawText, text, onCopied)}
             onCall={onCall}
             onDefer={onDefer}
             onMove={onMove}
@@ -193,6 +197,7 @@ function StaticQueueTableRow({ row, ...actions }: QueueRowActions & { row: Queue
 }
 
 function SortableQueueTableRow({ row, ...actions }: QueueRowActions & { row: QueueRowData }) {
+  const text = useUiCopy();
   const { attributes, listeners, setActivatorNodeRef, setNodeRef, transform, transition, isDragging } =
     useSortable({
       id: row.request.id
@@ -214,8 +219,8 @@ function SortableQueueTableRow({ row, ...actions }: QueueRowActions & { row: Que
             ref={setActivatorNodeRef}
             type="button"
             className="queue-table__drag-handle"
-            aria-label={`Перетащить заявку ${row.request.rawText}`}
-            title="Перетащить в очереди"
+            aria-label={`${text("queue.dragTitle")} ${row.request.rawText}`}
+            title={text("queue.dragTitle")}
             {...attributes}
             {...listeners}
           >
@@ -257,6 +262,7 @@ export function QueueTable({
   movePending: boolean;
   dragDisabled?: boolean;
 }) {
+  const text = useUiCopy();
   const [editingRequestId, setEditingRequestId] = useState<string | null>(null);
   const dragEnabled = canManage && requests.length > 1 && !movePending && !dragDisabled;
   const sensors = useSensors(
@@ -329,19 +335,19 @@ export function QueueTable({
             <thead>
               <tr>
                 <th className="queue-table__col-index">#</th>
-                <th className="queue-table__col-request">Заявка</th>
-                <th className="queue-table__col-guest">Гость</th>
-                <th className="queue-table__col-sung">Спел</th>
-                <th className="queue-table__col-wait">Ожидание</th>
-                <th className="queue-table__col-actions" aria-label="Дополнительные действия" />
+                <th className="queue-table__col-request">{text("queue.tableRequest")}</th>
+                <th className="queue-table__col-guest">{text("queue.tableGuest")}</th>
+                <th className="queue-table__col-sung">{text("queue.tableSung")}</th>
+                <th className="queue-table__col-wait">{text("queue.tableWait")}</th>
+                <th className="queue-table__col-actions" aria-label={text("queue.actionsLabel")} />
               </tr>
             </thead>
             <tbody>
               {!rows.length ? (
                 <tr>
                   <td className="queue-table__empty" colSpan={6}>
-                    <strong>Очередь пока пуста</strong>
-                    <span>Новые заявки появятся здесь</span>
+                    <strong>{text("queue.emptyTitle")}</strong>
+                    <span>{text("queue.emptySubtitle")}</span>
                   </td>
                 </tr>
               ) : dragEnabled ? (

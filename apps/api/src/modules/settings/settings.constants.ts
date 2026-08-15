@@ -1,4 +1,4 @@
-import type { GlobalSettings } from "@karaoke/contracts";
+import { DEFAULT_UI_LABELS, type GlobalSettings } from "@karaoke/contracts";
 
 export const DEFAULT_SETTINGS: GlobalSettings = {
   antiSpamSeconds: 300,
@@ -36,10 +36,5 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
     fallbackStatusQueuedNoAhead: "Прямо сейчас активных заявок перед вами нет.",
     fallbackStatusQueuedAheadTemplate: "Перед вами сейчас примерно {{before}} заявок."
   },
-  uiLabels: {
-    next: "Следующий исполнитель",
-    defer: "Пропустить",
-    leftVenue: "Человек ушёл",
-    undo: "Отменить исполнение"
-  }
+  uiLabels: DEFAULT_UI_LABELS
 };

@@ -30,6 +30,7 @@ declare module "@karaoke/contracts" {
     };
     uiLabels: Record<string, string>;
   };
+  export const DEFAULT_UI_LABELS: Record<string, string>;
 
   export type LoginResponseDto = {
     user: {

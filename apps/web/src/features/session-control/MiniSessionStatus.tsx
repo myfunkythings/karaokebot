@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { QueueSnapshotDto, SessionStatsDto } from "@karaoke/contracts";
 import { formatDateTime } from "../../shared/lib/format";
 import { api } from "../../shared/api/client";
+import { useUiCopy } from "../../shared/ui/ui-copy";
 
 export function MiniSessionStatus({
   activeSession,
@@ -15,6 +16,7 @@ export function MiniSessionStatus({
   stats: SessionStatsDto | null;
   canManage: boolean;
 }) {
+  const text = useUiCopy();
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
   const manualModeActive = snapshot.queued.some((item) => item.orderMode === "manual_pin");
@@ -42,34 +44,34 @@ export function MiniSessionStatus({
   return (
     <section className="sidebar-card sidebar-card--compact">
       <div className="sidebar-card__header">
-        <h2>Смена</h2>
+        <h2>{text("session.title")}</h2>
       </div>
 
       {activeSession ? (
         <>
           <div className="mini-status">
             <div className="mini-status__line">
-              <span>Статус</span>
-              <strong>Смена идёт</strong>
+              <span>{text("session.statusLabel")}</span>
+              <strong>{text("session.statusActive")}</strong>
             </div>
             <div className="mini-status__line">
-              <span>Название</span>
+              <span>{text("session.nameLabel")}</span>
               <strong>{activeSession.title}</strong>
             </div>
             <div className="mini-status__line">
-              <span>Открыта</span>
+              <span>{text("session.openedLabel")}</span>
               <strong>{formatDateTime(activeSession.openedAt)}</strong>
             </div>
             <div className="mini-status__line">
-              <span>В очереди</span>
+              <span>{text("queue.inQueue")}</span>
               <strong>{snapshot.queued.length}</strong>
             </div>
             <div className="mini-status__line">
-              <span>Автоочередь</span>
-              <strong>{manualModeActive ? "ручные правки" : "вкл"}</strong>
+              <span>{text("session.autoQueueLabel")}</span>
+              <strong>{manualModeActive ? text("session.autoQueueManual") : text("session.autoQueueOn")}</strong>
             </div>
             <div className="mini-status__line">
-              <span>Исполнено</span>
+              <span>{text("session.sungLabel")}</span>
               <strong>{stats?.totalSung ?? snapshot.stats.totalSung}</strong>
             </div>
           </div>
@@ -78,21 +80,21 @@ export function MiniSessionStatus({
         <form className="mini-status-form" onSubmit={handleOpen}>
           <div className="mini-status mini-status--closed">
             <div className="mini-status__line">
-              <span>Смена</span>
-              <strong>не открыта</strong>
+              <span>{text("session.title")}</span>
+              <strong>{text("session.closed")}</strong>
             </div>
           </div>
           <label className="field">
-            <span>Название</span>
+            <span>{text("session.nameLabel")}</span>
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="Караоке вечер"
+              placeholder={text("session.namePlaceholder")}
               disabled={!canManage}
             />
           </label>
           <button className="primary-button primary-button--block" type="submit" disabled={!canManage || openMutation.isPending}>
-            {openMutation.isPending ? "Открываем…" : "Открыть смену"}
+            {openMutation.isPending ? text("session.openPending") : text("session.open")}
           </button>
         </form>
       )}

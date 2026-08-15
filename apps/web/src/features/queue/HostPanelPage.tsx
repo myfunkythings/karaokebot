@@ -5,6 +5,7 @@ import { api } from "../../shared/api/client";
 import { CopyToast } from "./CopyToast";
 import { buildKaraokeCopyText, writeTextToClipboard } from "./InlineEditableRequestText";
 import { QueueTable } from "./QueueTable";
+import { useUiCopy } from "../../shared/ui/ui-copy";
 
 export function HostPanelPage({
   snapshot,
@@ -15,6 +16,7 @@ export function HostPanelPage({
   canManage: boolean;
   searchValue: string;
 }) {
+  const text = useUiCopy();
   const queryClient = useQueryClient();
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -101,10 +103,10 @@ export function HostPanelPage({
 
     try {
       await writeTextToClipboard(copiedValue);
-      setToastMessage(`Скопировано: ${copiedValue}`);
+      setToastMessage(text("queue.copySuccess", { request: copiedValue }));
     } catch (error) {
       console.error(error);
-      setToastMessage("Не удалось скопировать заявку");
+      setToastMessage(text("queue.copyError"));
     }
   }
 
@@ -132,14 +134,14 @@ export function HostPanelPage({
   }
 
   function handleMoveRequest(requestId: string, currentPosition: number) {
-    const nextPosition = window.prompt("Новая позиция в очереди", String(currentPosition));
+    const nextPosition = window.prompt(text("queue.movePrompt"), String(currentPosition));
     if (!nextPosition) {
       return;
     }
 
     const parsedPosition = Number(nextPosition);
     if (!Number.isInteger(parsedPosition) || parsedPosition < 1) {
-      window.alert("Введите корректный номер позиции.");
+      window.alert(text("queue.moveInvalid"));
       return;
     }
 
@@ -147,7 +149,7 @@ export function HostPanelPage({
   }
 
   function handleNoShow(guestName: string, guestId: string) {
-    const confirmed = window.confirm(`Отметить, что ${guestName} не дошёл(а), и снять будущие заявки?`);
+    const confirmed = window.confirm(text("queue.noShowConfirm", { guest: guestName }));
     if (confirmed) {
       cancelGuestMutation.mutate(guestId);
     }
@@ -158,11 +160,11 @@ export function HostPanelPage({
       <section className="operational-toolbar">
         <div className="operational-toolbar__summary" aria-label="Статус смены">
           <span className={snapshot.session ? "operational-pill operational-pill--live" : "operational-pill"}>
-            {snapshot.session ? "Смена идёт" : "Смена не открыта"}
+            {snapshot.session ? text("queue.shiftActive") : text("queue.shiftInactive")}
           </span>
           <div className="operational-toolbar__facts">
             <div className="operational-toolbar__fact">
-              <span>В очереди</span>
+              <span>{text("queue.inQueue")}</span>
               <strong>{snapshot.queued.length}</strong>
             </div>
           </div>
@@ -176,7 +178,7 @@ export function HostPanelPage({
             type="button"
             title="Горячая клавиша: N"
           >
-            {nextMutation.isPending ? "Вызываем..." : "Следующая песня"}
+            {nextMutation.isPending ? text("queue.nextSongPending") : text("queue.nextSong")}
           </button>
           <button
             className="secondary-button secondary-button--toolbar"
@@ -184,7 +186,7 @@ export function HostPanelPage({
             disabled={!canManage || undoMutation.isPending}
             type="button"
           >
-            {undoMutation.isPending ? "Отменяем..." : "Отменить последнее действие"}
+            {undoMutation.isPending ? text("queue.undoPending") : text("queue.undo")}
           </button>
         </div>
       </section>

@@ -9,8 +9,9 @@ export function CloseShiftSection({
   pending: boolean;
   onClose: () => void;
 }) {
+  const text = useUiCopy();
   function handleClose() {
-    const confirmed = window.confirm("Закрыть текущую смену? После этого новые заявки приниматься не будут.");
+    const confirmed = window.confirm(text("queue.closeConfirm"));
     if (confirmed) {
       onClose();
     }
@@ -19,7 +20,7 @@ export function CloseShiftSection({
   return (
     <section className="sidebar-card sidebar-card--danger">
       <div className="sidebar-card__header">
-        <h2>Закрыть смену</h2>
+        <h2>{text("session.closeTitle")}</h2>
       </div>
 
       <div className="close-shift-section">
@@ -29,9 +30,10 @@ export function CloseShiftSection({
           onClick={handleClose}
           disabled={!canManage || disabled}
         >
-          {pending ? "Закрываем…" : "Закрыть смену"}
+          {pending ? text("session.closePending") : text("session.close")}
         </button>
       </div>
     </section>
   );
 }
+import { useUiCopy } from "../../shared/ui/ui-copy";
