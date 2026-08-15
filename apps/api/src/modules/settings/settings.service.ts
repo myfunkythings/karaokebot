@@ -9,9 +9,15 @@ import { UpdateSettingsDto } from "./settings.dto.js";
 export class SettingsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getGlobalSettings(): Promise<GlobalSettings> {
+  async getGlobalSettings(channelSlug = "main"): Promise<GlobalSettings> {
+    const normalizedChannelSlug = channelSlug.trim() || "main";
+    const scopedBotReplyTemplatesKey = this.getBotReplyTemplatesKey(
+      normalizedChannelSlug
+    );
     const settings = await this.prisma.setting.findMany();
     const merged = structuredClone(DEFAULT_SETTINGS) as GlobalSettings;
+    let legacyBotReplyTemplates: GlobalSettings["botReplyTemplates"] | null = null;
+    let scopedBotReplyTemplates: GlobalSettings["botReplyTemplates"] | null = null;
 
     for (const setting of settings) {
       switch (setting.key) {
@@ -28,10 +34,8 @@ export class SettingsService {
           };
           break;
         case "botReplyTemplates":
-          merged.botReplyTemplates = {
-            ...merged.botReplyTemplates,
-            ...(setting.valueJson as GlobalSettings["botReplyTemplates"])
-          };
+          legacyBotReplyTemplates =
+            setting.valueJson as GlobalSettings["botReplyTemplates"];
           break;
         case "uiLabels":
           merged.uiLabels = {
@@ -42,16 +46,37 @@ export class SettingsService {
         default:
           break;
       }
+
+      if (setting.key === scopedBotReplyTemplatesKey) {
+        scopedBotReplyTemplates =
+          setting.valueJson as GlobalSettings["botReplyTemplates"];
+      }
+    }
+
+    const channelBotReplyTemplates =
+      scopedBotReplyTemplates ??
+      (normalizedChannelSlug === "main" ? null : legacyBotReplyTemplates);
+    if (channelBotReplyTemplates) {
+      merged.botReplyTemplates = {
+        ...merged.botReplyTemplates,
+        ...channelBotReplyTemplates
+      };
     }
 
     return merged;
   }
 
+  private getBotReplyTemplatesKey(channelSlug: string) {
+    return `botReplyTemplates:${channelSlug}`;
+  }
+
   async updateGlobalSettings(
     update: UpdateSettingsDto,
-    updatedByStaffId: string
+    updatedByStaffId: string,
+    channelSlug = "main"
   ): Promise<GlobalSettings> {
-    const current = await this.getGlobalSettings();
+    const normalizedChannelSlug = channelSlug.trim() || "main";
+    const current = await this.getGlobalSettings(normalizedChannelSlug);
     const next: GlobalSettings = {
       ...current,
       ...update,
@@ -70,23 +95,28 @@ export class SettingsService {
     };
 
     await Promise.all(
-      Object.entries(next).map(([key, value]) =>
-        this.prisma.setting.upsert({
-          where: { key },
+      Object.entries(next).map(([key, value]) => {
+        const storageKey =
+          key === "botReplyTemplates"
+            ? this.getBotReplyTemplatesKey(normalizedChannelSlug)
+            : key;
+
+        return this.prisma.setting.upsert({
+          where: { key: storageKey },
           update: {
             valueJson: value as Prisma.InputJsonValue,
             updatedByStaffId
           },
           create: {
-            key,
+            key: storageKey,
             valueJson: value as Prisma.InputJsonValue,
             updatedByStaffId
           }
-        })
-      )
+        });
+      })
     );
 
-    return next;
+    return this.getGlobalSettings(normalizedChannelSlug);
   }
 
   async snapshotGlobalSettings() {

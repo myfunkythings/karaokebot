@@ -77,7 +77,13 @@ function createService() {
     telegramOutboundService as never
   );
 
-  return { prisma, service, songRequestsService, telegramOutboundService };
+  return {
+    prisma,
+    service,
+    songRequestsService,
+    settingsService,
+    telegramOutboundService
+  };
 }
 
 function makeUpdate(text: string) {
@@ -97,10 +103,16 @@ function makeUpdate(text: string) {
 
 describe("TelegramService status text handling", () => {
   it("answers 'моя позиция' through the channel status flow instead of creating a song request", async () => {
-    const { service, songRequestsService, telegramOutboundService } = createService();
+    const {
+      service,
+      songRequestsService,
+      settingsService,
+      telegramOutboundService
+    } = createService();
 
     await service.handleWebhook(makeUpdate("Позиция"), "secondary-secret", "secondary");
 
+    expect(settingsService.getGlobalSettings).toHaveBeenCalledWith("secondary");
     expect(songRequestsService.getTelegramGuestStatusSummary).toHaveBeenCalledWith(
       "400",
       "secondary"
@@ -116,7 +128,7 @@ describe("TelegramService status text handling", () => {
           {
             text: "Открыть очередь",
             web_app: {
-              url: "https://zapoi.john-doe.ru/"
+              url: expect.stringMatching(/^https:\/\/zapoi\.john-doe\.ru\/\?guest=.+/)
             }
           }
         ],
@@ -194,7 +206,9 @@ describe("TelegramService status text handling", () => {
           {
             text: "Открыть очередь",
             web_app: {
-              url: "https://calc1.printninjas.ru/karaoke/queue/mishka"
+              url: expect.stringMatching(
+                /^https:\/\/calc1\.printninjas\.ru\/karaoke\/queue\/mishka\?guest=.+/
+              )
             }
           }
         ],
@@ -212,7 +226,7 @@ describe("TelegramService status text handling", () => {
     expect(telegramOutboundService.sendMessage).toHaveBeenCalledWith(
       "secondary",
       "300",
-      "Очередь тут: https://zapoi.john-doe.ru/",
+      expect.stringMatching(/^Очередь тут: https:\/\/zapoi\.john-doe\.ru\/\?guest=.+/),
       expect.any(Array)
     );
   });

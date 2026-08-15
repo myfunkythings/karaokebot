@@ -15,7 +15,7 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
       "Не понял команду. Просто отправь сообщение с исполнителем и песней, например: Кино - Пачка сигарет.",
     emptyMessage: "Пришлите, пожалуйста, исполнителя и название песни.",
     requestAccepted:
-      "Заявка принята. Если ведущий не успеет распознать песню, он уточнит её в админ-панели.",
+      "Заявка принята.\n\n👉 Перед вами примерно {{position}} {{trackPlural}}.\nЭто не финальное место: очередь пересчитывается после новых заявок и выступлений.",
     requestRejectedRateLimit:
       "Слишком часто. Подожди немного и отправь заявку ещё раз.",
     requestRejectedNoSession:
@@ -24,7 +24,7 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
     statusNoGuestProfile: "У тебя пока нет активных заявок.",
     statusNoActiveRequests: "У тебя сейчас нет заявок в активной смене.",
     statusQueuedSummary:
-      "Ты в очереди. Следи за сценой и подходи, когда тебя позовут.\n\nТекущая заявка: {{title}}\nПесен перед вами: {{position}}.",
+      "Ты в очереди. Следи за сценой и подходи, когда тебя позовут.\n\nТекущая заявка: {{title}}\nПесен перед вами: {{position}} {{trackPlural}}.\nЭто не финальное место: очередь пересчитывается после новых заявок и выступлений.",
     fallbackPositionUnavailable:
       "Не удалось получить позицию: сейчас недоступны и новая программа, и Google Sheets.",
     fallbackRequestSaveFailed:
@@ -44,7 +44,8 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
     telegramCancelConfirmationMessage:
       "Точно удалить все твои заявки из очереди? Это действие нельзя отменить из Telegram.\n\nЕсли нажал случайно, выбери «Не удалять».",
     telegramCancelAbortMessage: "Ок, заявки оставил в очереди.",
-    telegramNextSongNotification: "Ваша песня следующая"
+    telegramNextSongNotification:
+      "🎤 Скоро ваш выход!\n\nПеред вами осталась одна песня. Пожалуйста, подготовьтесь и будьте рядом со сценой."
   },
   uiLabels: {
     next: "Следующий исполнитель",

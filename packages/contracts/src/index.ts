@@ -120,6 +120,9 @@ export type PublicSongRequestDto = {
   artist: string | null;
   title: string | null;
   status: Extract<SongRequestStatus, "queued" | "current">;
+  isViewerRequest?: boolean;
+  forecastTracksAhead?: number | null;
+  forecastText?: string | null;
 };
 
 export type PublicQueueSnapshotDto = {
@@ -127,6 +130,18 @@ export type PublicQueueSnapshotDto = {
   activeChannel: Pick<RequestChannelDto, "color">;
   current: PublicSongRequestDto | null;
   queued: PublicSongRequestDto[];
+  viewer: {
+    queuedCount: number;
+    nearestRequest: {
+      position: number | null;
+      rawText: string;
+      artist: string | null;
+      title: string | null;
+      status: Extract<SongRequestStatus, "queued" | "current">;
+      forecastTracksAhead: number | null;
+      forecastText: string;
+    } | null;
+  } | null;
   stats: {
     queuedCount: number;
     hasCurrent: boolean;

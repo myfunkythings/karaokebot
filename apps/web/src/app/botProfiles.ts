@@ -1,11 +1,12 @@
-export type BotSlug = "mishka" | "zapoi";
+export type BotSlug = "mishka" | "zapoi" | "petya";
 
 export type BotProfile = {
   slug: BotSlug;
-  channelSlug: "main" | "secondary";
+  channelSlug: "main" | "secondary" | "petya";
   title: string;
   adminTitle: string;
   hostnames: string[];
+  pathPrefixes: string[];
   publicPath: string;
   adminPath: string;
   queuePath: string;
@@ -19,6 +20,7 @@ export const botProfiles: Record<BotSlug, BotProfile> = {
     title: "Мишка",
     adminTitle: "MISHKA KARAOKE",
     hostnames: [],
+    pathPrefixes: [],
     publicPath: "/queue/mishka",
     adminPath: "/bot/mishka",
     queuePath: "/bot/mishka",
@@ -30,10 +32,23 @@ export const botProfiles: Record<BotSlug, BotProfile> = {
     title: "Запой",
     adminTitle: "ZAPOI KARAOKE",
     hostnames: ["zapoi.john-doe.ru"],
+    pathPrefixes: [],
     publicPath: "/",
     adminPath: "/admin",
     queuePath: "/admin",
     themeClassName: "bot-theme--zapoi"
+  },
+  petya: {
+    slug: "petya",
+    channelSlug: "petya",
+    title: "Петя",
+    adminTitle: "PETYA KARAOKE",
+    hostnames: [],
+    pathPrefixes: ["/karaoke-petya"],
+    publicPath: "/queue",
+    adminPath: "/",
+    queuePath: "/",
+    themeClassName: "bot-theme--petya"
   }
 };
 
@@ -48,11 +63,11 @@ export const legacyAdminBotRoutes: Record<string, BotSlug> = {
   secondary: "zapoi"
 };
 
-export function getActiveBotProfile(hostname = window.location.hostname): BotProfile {
-  return (
-    Object.values(botProfiles).find((profile) => profile.hostnames.includes(hostname)) ??
-    botProfiles.mishka
-  );
+export function getActiveBotProfile(
+  hostname = window.location.hostname,
+  pathname = window.location.pathname
+): BotProfile {
+  return findProfileByHostname(hostname) ?? findProfileByPathname(pathname) ?? botProfiles.mishka;
 }
 
 export function getBotProfileBySlug(slug: string | undefined): BotProfile | null {
@@ -63,16 +78,46 @@ export function getBotProfileBySlug(slug: string | undefined): BotProfile | null
   return botProfiles[slug as BotSlug] ?? null;
 }
 
-export function getRuntimeRouterBase(hostname = window.location.hostname) {
-  const profileForHost = Object.values(botProfiles).find((profile) => profile.hostnames.includes(hostname));
+export function getRuntimeRouterBase(
+  hostname = window.location.hostname,
+  pathname = window.location.pathname
+) {
+  const profileForHost = findProfileByHostname(hostname);
   if (profileForHost) {
     return "";
+  }
+
+  const pathPrefix = findProfileByPathname(pathname)?.pathPrefixes.find((prefix) =>
+    pathMatchesPrefix(pathname, prefix)
+  );
+  if (pathPrefix) {
+    return pathPrefix;
   }
 
   const buildBase = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
   return buildBase === "/" ? "" : buildBase;
 }
 
-export function getLoginPath() {
-  return "/login";
+export function getLoginPath(
+  hostname = window.location.hostname,
+  pathname = window.location.pathname
+) {
+  return `${getRuntimeRouterBase(hostname, pathname)}/login`;
+}
+
+function findProfileByHostname(hostname: string) {
+  return Object.values(botProfiles).find((profile) => profile.hostnames.includes(hostname));
+}
+
+function findProfileByPathname(pathname: string) {
+  return Object.values(botProfiles).find((profile) =>
+    profile.pathPrefixes.some((prefix) => pathMatchesPrefix(pathname, prefix))
+  );
+}
+
+function pathMatchesPrefix(pathname: string, prefix: string) {
+  const normalizedPathname = (pathname.split(/[?#]/, 1).at(0) ?? "/").replace(/\/+$/, "") || "/";
+  const normalizedPrefix = prefix.replace(/\/+$/, "") || "/";
+
+  return normalizedPathname === normalizedPrefix || normalizedPathname.startsWith(`${normalizedPrefix}/`);
 }

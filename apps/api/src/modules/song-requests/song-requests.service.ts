@@ -39,6 +39,9 @@ type ForecastGuestStat = {
   sungCount: number;
 };
 
+const FORECAST_DISCLAIMER =
+  "Это не финальное место: очередь пересчитывается после новых заявок и выступлений.";
+
 @Injectable()
 export class SongRequestsService {
   constructor(
@@ -117,10 +120,10 @@ export class SongRequestsService {
     channelSlug?: string | null;
   }): Promise<TelegramCreateResult> {
     const session = await this.sessionsService.getActiveSession();
-    const settings = await this.settingsService.getGlobalSettings();
     const channel = await this.requestChannelsService.getRequiredChannelBySlug(
       input.channelSlug
     );
+    const settings = await this.settingsService.getGlobalSettings(channel.slug);
     const guest = await this.guestsService.upsertTelegramGuest({
       telegramUserId: input.telegramUserId,
       telegramUsername: input.telegramUsername,
@@ -235,7 +238,9 @@ export class SongRequestsService {
         status: "accepted" as const,
         message: this.renderTemplate(settings.botReplyTemplates.requestAccepted, {
           title,
-          position: String(position)
+          position: String(position),
+          trackPlural: this.getTrackPlural(position),
+          tracksAheadText: this.formatTracksAhead(position)
         }),
         requestId: request.id,
         guestProfileId: guest.id
@@ -297,8 +302,8 @@ export class SongRequestsService {
 
   async getTelegramGuestStatusSummary(telegramUserId: string, channelSlug?: string | null) {
     const session = await this.sessionsService.getActiveSession();
-    const settings = await this.settingsService.getGlobalSettings();
     const channel = await this.requestChannelsService.getRequiredChannelBySlug(channelSlug);
+    const settings = await this.settingsService.getGlobalSettings(channel.slug);
 
     if (!session) {
       return settings.botReplyTemplates.requestRejectedNoSession;
@@ -409,8 +414,8 @@ export class SongRequestsService {
     channelSlug?: string | null
   ) {
     const session = await this.sessionsService.getActiveSession();
-    const settings = await this.settingsService.getGlobalSettings();
     const channel = await this.requestChannelsService.getRequiredChannelBySlug(channelSlug);
+    const settings = await this.settingsService.getGlobalSettings(channel.slug);
 
     if (!session) {
       return settings.botReplyTemplates.requestRejectedNoSession;
@@ -508,7 +513,7 @@ export class SongRequestsService {
       return `${index + 1}. ${title} — ${this.formatTracksAhead(tracksAhead)}.`;
     });
 
-    return ["Твои песни в очереди:", ...lines].join("\n");
+    return ["Твои песни в очереди:", ...lines, "", FORECAST_DISCLAIMER].join("\n");
   }
 
   private forecastTracksAheadByRequestId(input: {

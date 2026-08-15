@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { PublicQueueSnapshotDto, PublicSongRequestDto } from "@karaoke/contracts";
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../shared/api/client";
 import { getActiveBotProfile, getBotProfileBySlug } from "../app/botProfiles";
 
@@ -92,6 +92,7 @@ const mockPublicQueueSnapshot: PublicQueueSnapshotDto = {
     queuedCount: 10,
     hasCurrent: true
   },
+  viewer: null,
   updatedAt: new Date().toISOString()
 };
 
@@ -103,14 +104,42 @@ function formatRequest(request: PublicSongRequestDto) {
   return request.rawText;
 }
 
+function formatViewerForecastSentence(forecastText: string) {
+  if (forecastText.startsWith("примерно")) {
+    return `Сейчас ваша песня прогнозно ${forecastText}.`;
+  }
+
+  return `Сейчас ваша песня: ${forecastText}.`;
+}
+
+function PublicQueueBrand({ profile }: { profile: ReturnType<typeof getActiveBotProfile> }) {
+  if (profile.slug === "zapoi") {
+    return <img className="public-queue-logo" src="/sanatorium-john-doe-logo.png" alt={profile.title} />;
+  }
+
+  return <strong className="public-queue-title">{profile.title}</strong>;
+}
+
 function PublicQueueRow({ request, isNext = false }: { request: PublicSongRequestDto; isNext?: boolean }) {
+  const rowClassName = [
+    "public-queue-row",
+    request.status === "current" ? "public-queue-row--current" : "",
+    isNext ? "public-queue-row--next" : "",
+    request.isViewerRequest ? "public-queue-row--viewer" : ""
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <tr className={request.status === "current" ? "public-queue-row public-queue-row--current" : isNext ? "public-queue-row public-queue-row--next" : "public-queue-row"}>
+    <tr className={rowClassName}>
       <td className="public-queue-table__position">
         <span>{request.position ?? "Сейчас"}</span>
       </td>
       <td className="public-queue-table__request">
         <strong>{formatRequest(request)}</strong>
+        {request.isViewerRequest ? (
+          <span>{request.forecastText ?? "Ваша заявка"}</span>
+        ) : null}
       </td>
     </tr>
   );
@@ -118,14 +147,16 @@ function PublicQueueRow({ request, isNext = false }: { request: PublicSongReques
 
 export function PublicQueuePage() {
   const { botSlug } = useParams();
+  const [searchParams] = useSearchParams();
   const hostProfile = getActiveBotProfile();
   const routeProfile = getBotProfileBySlug(botSlug);
   const activeProfile = routeProfile ?? (!botSlug ? hostProfile : null);
   const channelSlug = activeProfile?.channelSlug;
+  const guestToken = searchParams.get("guest");
 
   const snapshotQuery = useQuery({
-    queryKey: ["queue", "public-snapshot", channelSlug],
-    queryFn: () => api.getPublicQueueSnapshot(channelSlug ?? "main"),
+    queryKey: ["queue", "public-snapshot", channelSlug, guestToken],
+    queryFn: () => api.getPublicQueueSnapshot(channelSlug ?? "main", guestToken),
     enabled: Boolean(channelSlug),
     refetchInterval: 5_000,
     retry: import.meta.env.DEV ? false : 2
@@ -148,7 +179,7 @@ export function PublicQueuePage() {
         <section className="host-panel-page public-queue-shell">
           <div className="host-console-bar public-queue-topbar">
             <div className="host-console-bar__admin">
-              <img className="public-queue-logo" src="/sanatorium-john-doe-logo.png" alt={activeProfile.title} />
+              <PublicQueueBrand profile={activeProfile} />
               <span>
                 Позиции в очереди могут меняться, т.к. система автоматически поднимает наверх тех, кто спел меньше, а
                 уже потом сортирует по времени заявки.
@@ -166,10 +197,9 @@ export function PublicQueuePage() {
       <section className="host-panel-page public-queue-shell">
         <div className="host-console-bar public-queue-topbar">
           <div className="host-console-bar__admin">
-            <img className="public-queue-logo" src="/sanatorium-john-doe-logo.png" alt={activeProfile.title} />
+            <PublicQueueBrand profile={activeProfile} />
             <span>
-              Позиции в очереди могут меняться, т.к. система автоматически поднимает наверх тех, кто спел меньше, а уже
-              потом сортирует по времени заявки.
+              Позиции прогнозные. Это не финальное место: очередь пересчитывается после новых заявок и выступлений.
             </span>
           </div>
 
@@ -184,6 +214,17 @@ export function PublicQueuePage() {
             <span className="queue-count-chip">{snapshot.stats.queuedCount} заявок</span>
           </div>
         </div>
+
+        {snapshot.viewer?.nearestRequest ? (
+          <section className="public-queue-viewer-card">
+            <span>Ваша ближайшая песня</span>
+            <strong>{formatRequest(snapshot.viewer.nearestRequest)}</strong>
+            <p>
+              {formatViewerForecastSentence(snapshot.viewer.nearestRequest.forecastText)} Это не финальное место:
+              очередь пересчитывается после новых заявок и выступлений.
+            </p>
+          </section>
+        ) : null}
 
         <section className="queue-panel public-queue-panel">
           <div className="queue-table-wrap">

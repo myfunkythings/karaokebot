@@ -12,8 +12,11 @@ export class QueueController {
 
   @Public()
   @Get("public-snapshot")
-  async getPublicSnapshot(@Query("channel") channelSlug: string | undefined) {
-    return this.queueService.getPublicSnapshot(channelSlug);
+  async getPublicSnapshot(
+    @Query("channel") channelSlug: string | undefined,
+    @Query("guest") guestToken: string | undefined
+  ) {
+    return this.queueService.getPublicSnapshot(channelSlug, guestToken);
   }
 
   @Roles("viewer", "host", "owner")

@@ -14,8 +14,8 @@ export function SettingsPage() {
     queryFn: api.me
   });
   const settingsQuery = useQuery({
-    queryKey: ["settings", "global"],
-    queryFn: api.getSettings
+    queryKey: ["settings", "global", activeProfile.channelSlug],
+    queryFn: () => api.getSettings(activeProfile.channelSlug)
   });
 
   const logoutMutation = useMutation({
@@ -36,7 +36,11 @@ export function SettingsPage() {
   return (
     <AppLayout user={user} profile={activeProfile} queuePath={activeProfile.queuePath} onLogout={() => logoutMutation.mutate()}>
       <div className="settings-page-grid">
-        <SettingsPanel settings={settings} canEdit={user.role === "owner"} />
+        <SettingsPanel
+          settings={settings}
+          canEdit={user.role === "owner"}
+          channelSlug={activeProfile.channelSlug}
+        />
       </div>
     </AppLayout>
   );

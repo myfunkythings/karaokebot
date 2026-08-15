@@ -2,8 +2,10 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  NotFoundException
+  NotFoundException,
+  Optional
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
 import {
   OrderMode,
   Prisma,
@@ -11,15 +13,21 @@ import {
   SongRequestSource,
   SongRequestStatus
 } from "@prisma/client";
-import type { PublicQueueSnapshotDto, QueueSnapshotDto } from "@karaoke/contracts";
+import type {
+  PublicQueueSnapshotDto,
+  PublicSongRequestDto,
+  QueuePolicyFlags,
+  QueueSnapshotDto
+} from "@karaoke/contracts";
 import { PrismaService } from "../../common/db/prisma.service.js";
 import { toPublicSongRequestDto, toSongRequestDto } from "../../common/utils/song-request.mapper.js";
 import { AuditService } from "../audit/audit.service.js";
 import { SessionsService } from "../sessions/sessions.service.js";
-import { buildQueuePlan } from "./queue-order.js";
+import { buildQueuePlan, forecastTurnsUntilRequest } from "./queue-order.js";
 import { SettingsService } from "../settings/settings.service.js";
 import { RequestChannelsService } from "../request-channels/request-channels.service.js";
 import { TelegramOutboundService } from "../telegram/telegram-outbound.service.js";
+import { isPublicQueueGuestTokenValid } from "../telegram/public-queue-guest-token.js";
 
 type RequestSnapshot = {
   id: string;
@@ -43,10 +51,14 @@ export class QueueService {
     private readonly sessionsService: SessionsService,
     private readonly settingsService: SettingsService,
     private readonly requestChannelsService: RequestChannelsService,
-    private readonly telegramOutboundService: TelegramOutboundService
+    private readonly telegramOutboundService: TelegramOutboundService,
+    @Optional() private readonly configService?: ConfigService
   ) {}
 
-  async getPublicSnapshot(channelSlug?: string | null): Promise<PublicQueueSnapshotDto> {
+  async getPublicSnapshot(
+    channelSlug?: string | null,
+    guestToken?: string | null
+  ): Promise<PublicQueueSnapshotDto> {
     const channel = await this.requestChannelsService.getRequiredChannelBySlug(channelSlug);
     const session = await this.sessionsService.getActiveSession();
 
@@ -58,6 +70,7 @@ export class QueueService {
         },
         current: null,
         queued: [],
+        viewer: null,
         stats: {
           queuedCount: 0,
           hasCurrent: false
@@ -66,27 +79,97 @@ export class QueueService {
       };
     }
 
-    const requests = await this.prisma.songRequest.findMany({
-      where: {
-        sessionId: session.id,
-        channelId: channel.id,
-        status: {
-          in: [SongRequestStatus.current, SongRequestStatus.queued]
+    const [requests, guestStats] = await Promise.all([
+      this.prisma.songRequest.findMany({
+        where: {
+          sessionId: session.id,
+          channelId: channel.id,
+          status: {
+            in: [SongRequestStatus.current, SongRequestStatus.queued]
+          }
+        },
+        include: {
+          guestProfile: true
+        },
+        orderBy: [{ queueRank: "asc" }, { requestedAt: "asc" }]
+      }),
+      this.prisma.sessionGuestStat.findMany({
+        where: {
+          sessionId: session.id
         }
-      },
-      orderBy: [{ queueRank: "asc" }, { requestedAt: "asc" }]
-    });
+      })
+    ]);
 
     const current = requests.find((request) => request.status === SongRequestStatus.current) ?? null;
     const queued = requests.filter((request) => request.status === SongRequestStatus.queued);
+    const viewerGuestId = this.resolveViewerGuestIdFromToken({
+      requests,
+      guestToken,
+      channelSlug: channel.slug
+    });
+    const tracksAheadByRequestId = viewerGuestId
+      ? this.forecastTracksAheadByRequestId({
+          queuedRequests: queued,
+          guestStats,
+          configSnapshotJson: session.configSnapshotJson,
+          requests: queued.filter((request) => request.guestProfileId === viewerGuestId),
+          currentPerformerGuestId: current?.guestProfileId ?? null
+        })
+      : new Map<string, number>();
+    const currentDto = current
+      ? this.toPublicSongRequestWithViewer(current, null, viewerGuestId, tracksAheadByRequestId)
+      : null;
+    const queuedDto = queued.map((request, index) =>
+      this.toPublicSongRequestWithViewer(
+        request,
+        index + 1,
+        viewerGuestId,
+        tracksAheadByRequestId
+      )
+    );
+    const viewerRequests = [currentDto, ...queuedDto].filter(
+      (request): request is PublicSongRequestDto => Boolean(request?.isViewerRequest)
+    );
+    const nearestViewerRequest =
+      viewerRequests.find((request) => request.status === "current") ??
+      viewerRequests
+        .filter((request) => request.status === "queued")
+        .sort(
+          (left, right) =>
+            (left.forecastTracksAhead ?? Number.MAX_SAFE_INTEGER) -
+              (right.forecastTracksAhead ?? Number.MAX_SAFE_INTEGER) ||
+            (left.position ?? Number.MAX_SAFE_INTEGER) -
+              (right.position ?? Number.MAX_SAFE_INTEGER)
+        )[0] ??
+      null;
 
     return {
       isOpen: true,
       activeChannel: {
         color: channel.color
       },
-      current: current ? toPublicSongRequestDto(current, null) : null,
-      queued: queued.map((request, index) => toPublicSongRequestDto(request, index + 1)),
+      current: currentDto,
+      queued: queuedDto,
+      viewer: viewerGuestId
+        ? {
+            queuedCount: viewerRequests.filter((request) => request.status === "queued").length,
+            nearestRequest: nearestViewerRequest
+              ? {
+                  position: nearestViewerRequest.position,
+                  rawText: nearestViewerRequest.rawText,
+                  artist: nearestViewerRequest.artist,
+                  title: nearestViewerRequest.title,
+                  status: nearestViewerRequest.status,
+                  forecastTracksAhead: nearestViewerRequest.forecastTracksAhead ?? null,
+                  forecastText:
+                    nearestViewerRequest.forecastText ??
+                    (nearestViewerRequest.status === "current"
+                      ? "вы сейчас поёте"
+                      : "позиция уточняется")
+                }
+              : null
+          }
+        : null,
       stats: {
         queuedCount: queued.length,
         hasCurrent: Boolean(current)
@@ -172,6 +255,214 @@ export class QueueService {
       recentActions: await this.getRecentActions(session.id, channel.slug),
       stats: aggregated
     };
+  }
+
+  private toPublicSongRequestWithViewer(
+    request: {
+      id: string;
+      guestProfileId: string;
+      queueRank: number | null;
+      rawText: string;
+      artist: string | null;
+      title: string | null;
+      status: SongRequestStatus;
+    },
+    position: number | null,
+    viewerGuestId: string | null,
+    tracksAheadByRequestId: Map<string, number>
+  ): PublicSongRequestDto {
+    const dto = toPublicSongRequestDto(request, position);
+
+    if (!viewerGuestId || request.guestProfileId !== viewerGuestId) {
+      return dto;
+    }
+
+    if (request.status === SongRequestStatus.current) {
+      return {
+        ...dto,
+        isViewerRequest: true,
+        forecastTracksAhead: 0,
+        forecastText: "вы сейчас поёте"
+      };
+    }
+
+    const tracksAhead =
+      tracksAheadByRequestId.get(request.id) ?? Math.max(0, (request.queueRank ?? 1) - 1);
+
+    return {
+      ...dto,
+      isViewerRequest: true,
+      forecastTracksAhead: tracksAhead,
+      forecastText: this.formatTracksAhead(tracksAhead)
+    };
+  }
+
+  private resolveViewerGuestIdFromToken(input: {
+    requests: Array<{
+      guestProfileId: string;
+      guestProfile?: { telegramUserId: string | null } | null;
+    }>;
+    guestToken?: string | null;
+    channelSlug: string;
+  }) {
+    const token = input.guestToken?.trim();
+    const secret = this.getPublicQueueTokenSecret(input.channelSlug);
+
+    if (!token || !secret) {
+      return null;
+    }
+
+    for (const request of input.requests) {
+      const telegramUserId = request.guestProfile?.telegramUserId;
+      if (
+        telegramUserId &&
+        isPublicQueueGuestTokenValid({
+          token,
+          channelSlug: input.channelSlug,
+          telegramUserId,
+          secret
+        })
+      ) {
+        return request.guestProfileId;
+      }
+    }
+
+    return null;
+  }
+
+  private forecastTracksAheadByRequestId(input: {
+    queuedRequests: Array<{
+      id: string;
+      guestProfileId: string;
+      requestedAt: Date;
+      orderMode: OrderMode;
+      manualRank: number | null;
+      queueRank: number | null;
+    }>;
+    guestStats: Array<{ guestProfileId: string; sungCount: number }>;
+    configSnapshotJson: unknown;
+    requests: Array<{ id: string; queueRank: number | null }>;
+    currentPerformerGuestId?: string | null;
+  }) {
+    return new Map(
+      input.requests.map((request) => [
+        request.id,
+        this.forecastTracksAheadForRequest({
+          queuedRequests: input.queuedRequests,
+          guestStats: input.guestStats,
+          configSnapshotJson: input.configSnapshotJson,
+          requestId: request.id,
+          fallbackQueueRank: request.queueRank,
+          currentPerformerGuestId: input.currentPerformerGuestId
+        }) ?? Math.max(0, (request.queueRank ?? 1) - 1)
+      ])
+    );
+  }
+
+  private forecastTracksAheadForRequest(input: {
+    queuedRequests: Array<{
+      id: string;
+      guestProfileId: string;
+      requestedAt: Date;
+      orderMode: OrderMode;
+      manualRank: number | null;
+    }>;
+    guestStats: Array<{ guestProfileId: string; sungCount: number }>;
+    configSnapshotJson: unknown;
+    requestId: string;
+    fallbackQueueRank: number | null;
+    currentPerformerGuestId?: string | null;
+  }) {
+    const statsByGuest = new Map(
+      input.guestStats.map((item) => [
+        item.guestProfileId,
+        { sungCount: item.sungCount }
+      ])
+    );
+    const currentPerformerGuestId = input.currentPerformerGuestId ?? null;
+    const activeCurrentOffset = currentPerformerGuestId ? 1 : 0;
+
+    if (currentPerformerGuestId) {
+      const currentStats = statsByGuest.get(currentPerformerGuestId) ?? {
+        sungCount: 0
+      };
+      statsByGuest.set(currentPerformerGuestId, {
+        sungCount: currentStats.sungCount + 1
+      });
+    }
+
+    const forecastTurns = forecastTurnsUntilRequest(
+      input.queuedRequests.map((request) => ({
+        id: request.id,
+        guestProfileId: request.guestProfileId,
+        requestedAt: request.requestedAt,
+        orderMode: request.orderMode,
+        manualRank: request.manualRank
+      })),
+      statsByGuest,
+      this.getQueuePolicyFlags(input.configSnapshotJson),
+      input.requestId
+    );
+
+    return (
+      forecastTurns ?? Math.max((input.fallbackQueueRank ?? 1) - 1, 0)
+    ) + activeCurrentOffset;
+  }
+
+  private formatTracksAhead(tracksAhead: number) {
+    if (tracksAhead === 0) {
+      return "вы следующий/следующая";
+    }
+
+    return `примерно через ${tracksAhead} ${this.getTrackPlural(tracksAhead)}`;
+  }
+
+  private getTrackPlural(count: number) {
+    const lastTwoDigits = count % 100;
+    const lastDigit = count % 10;
+
+    if (lastTwoDigits >= 11 && lastTwoDigits <= 14) {
+      return "треков";
+    }
+
+    if (lastDigit === 1) {
+      return "трек";
+    }
+
+    if (lastDigit >= 2 && lastDigit <= 4) {
+      return "трека";
+    }
+
+    return "треков";
+  }
+
+  private getQueuePolicyFlags(configSnapshotJson: unknown): QueuePolicyFlags {
+    const flags = (
+      configSnapshotJson as {
+        queuePolicyFlags?: Partial<QueuePolicyFlags>;
+      } | null
+    )?.queuePolicyFlags;
+
+    return {
+      prioritizeFirstTimeSinger: flags?.prioritizeFirstTimeSinger ?? true,
+      prioritizeLowerSungCount: flags?.prioritizeLowerSungCount ?? true,
+      prioritizeRequestTime: flags?.prioritizeRequestTime ?? true
+    };
+  }
+
+  private getPublicQueueTokenSecret(channelSlug = "main") {
+    return (
+      this.configService?.get<string>("SESSION_SECRET") ??
+      this.configService?.get<string>(this.getWebhookSecretEnvName(channelSlug))
+    );
+  }
+
+  private getWebhookSecretEnvName(channelSlug: string) {
+    if (channelSlug === "main") {
+      return "TELEGRAM_WEBHOOK_SECRET";
+    }
+
+    return `TELEGRAM_${channelSlug.toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_WEBHOOK_SECRET`;
   }
 
   async moveRequest(
@@ -858,18 +1149,18 @@ export class QueueService {
       where: {
         sessionId,
         channelId,
-        status: SongRequestStatus.queued,
-        source: SongRequestSource.telegram
+        status: SongRequestStatus.queued
       },
       orderBy: [{ queueRank: "asc" }, { requestedAt: "asc" }],
       select: {
         id: true,
         guestProfileId: true,
-        telegramUpdateId: true
+        telegramUpdateId: true,
+        source: true
       }
     });
 
-    if (!nextQueued) {
+    if (!nextQueued || nextQueued.source !== SongRequestSource.telegram) {
       return;
     }
 
@@ -892,7 +1183,7 @@ export class QueueService {
       return;
     }
 
-    const settings = await this.settingsService.getGlobalSettings();
+    const settings = await this.settingsService.getGlobalSettings(channelSlug);
     await this.telegramOutboundService.sendMessage(
       channelSlug,
       telegramUpdate.telegramChatId,
