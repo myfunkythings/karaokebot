@@ -4539,6 +4539,10 @@ body {
   .host-console-bar {
     display: contents;
   }
+
+  .secondary-button--toolbar {
+    white-space: normal;
+  }
 }
 
 @media (min-width: 1181px) {
