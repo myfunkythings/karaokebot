@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../shared/api/client";
+import { useUiCopy } from "../../shared/ui/ui-copy";
 
 export function ManualRequestForm({
   canManage,
@@ -9,6 +10,7 @@ export function ManualRequestForm({
   canManage: boolean;
   channelSlug: string;
 }) {
+  const text = useUiCopy();
   const queryClient = useQueryClient();
   const [displayName, setDisplayName] = useState("");
   const [rawText, setRawText] = useState("");
@@ -37,26 +39,26 @@ export function ManualRequestForm({
   return (
     <section className="sidebar-card">
       <div className="sidebar-card__header">
-        <h2>Добавить заявку</h2>
+        <h2>{text("queue.addTitle")}</h2>
       </div>
 
       <form className="manual-request-form" onSubmit={handleSubmit}>
         <label className="field">
-          <span>Гость</span>
+          <span>{text("queue.addGuestLabel")}</span>
           <input
             value={displayName}
             onChange={(event) => setDisplayName(event.target.value)}
-            placeholder="Например: Аня, стол 4"
+            placeholder={text("queue.addGuestPlaceholder")}
             disabled={!canManage}
           />
         </label>
 
         <label className="field">
-          <span>Заявка</span>
+          <span>{text("queue.addRequestLabel")}</span>
           <textarea
             value={rawText}
             onChange={(event) => setRawText(event.target.value)}
-            placeholder="Например: emma ruth rundle - living with a black dog"
+            placeholder={text("queue.addRequestPlaceholder")}
             disabled={!canManage}
             rows={4}
           />
@@ -67,7 +69,7 @@ export function ManualRequestForm({
           type="submit"
           disabled={!canManage || mutation.isPending || !displayName.trim() || !rawText.trim()}
         >
-          {mutation.isPending ? "Добавляем…" : "Добавить заявку"}
+          {mutation.isPending ? text("queue.addSubmitPending") : text("queue.addSubmit")}
         </button>
       </form>
     </section>

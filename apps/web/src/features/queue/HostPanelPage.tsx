@@ -5,6 +5,7 @@ import { api } from "../../shared/api/client";
 import { CopyToast } from "./CopyToast";
 import { buildKaraokeCopyText, writeTextToClipboard } from "./InlineEditableRequestText";
 import { QueueTable } from "./QueueTable";
+import { useUiCopy } from "../../shared/ui/ui-copy";
 
 export function HostPanelPage({
   snapshot,
@@ -19,6 +20,7 @@ export function HostPanelPage({
   onSearchChange: (value: string) => void;
   onClearSearch: () => void;
 }) {
+  const text = useUiCopy();
   const queryClient = useQueryClient();
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [conflictMessage, setConflictMessage] = useState<string | null>(null);
@@ -148,10 +150,10 @@ export function HostPanelPage({
 
     try {
       await writeTextToClipboard(copiedValue);
-      setToastMessage(`Скопировано: ${copiedValue}`);
+      setToastMessage(text("queue.copySuccess", { request: copiedValue }));
     } catch (error) {
       console.error(error);
-      setToastMessage("Не удалось скопировать заявку");
+      setToastMessage(text("queue.copyError"));
     }
   }
 
@@ -182,14 +184,14 @@ export function HostPanelPage({
   }
 
   function handleMoveRequest(requestId: string, currentPosition: number) {
-    const nextPosition = window.prompt("Новая позиция в очереди", String(currentPosition));
+    const nextPosition = window.prompt(text("queue.movePrompt"), String(currentPosition));
     if (!nextPosition) {
       return;
     }
 
     const parsedPosition = Number(nextPosition);
     if (!Number.isInteger(parsedPosition) || parsedPosition < 1) {
-      window.alert("Введите корректный номер позиции.");
+      window.alert(text("queue.moveInvalid"));
       return;
     }
 
@@ -201,9 +203,7 @@ export function HostPanelPage({
   }
 
   function handleNoShow(guestName: string, guestId: string) {
-    const confirmed = window.confirm(
-      `Отметить, что ${guestName} не дошёл(а), и снять все активные и будущие заявки этого гостя?`
-    );
+    const confirmed = window.confirm(text("queue.noShowConfirm", { guest: guestName }));
     if (confirmed) {
       cancelGuestMutation.mutate({
         guestId,
@@ -233,8 +233,8 @@ export function HostPanelPage({
             <input
               value={searchValue}
               onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Гость, песня или @telegram"
-              aria-label="Поиск по очереди"
+              placeholder={text("queue.searchPlaceholder")}
+              aria-label={text("queue.searchLabel")}
             />
           </label>
           <span className="queue-count-chip">
@@ -244,7 +244,7 @@ export function HostPanelPage({
           </span>
           {queueSearch ? (
             <button className="ghost-button ghost-button--compact" onClick={onClearSearch} type="button">
-              Сбросить
+              {text("queue.clearSearch")}
             </button>
           ) : null}
         </div>
@@ -268,7 +268,7 @@ export function HostPanelPage({
             disabled={!canManage || undoMutation.isPending}
             type="button"
           >
-            {undoMutation.isPending ? "Отменяем..." : "Отменить"}
+            {undoMutation.isPending ? text("queue.undoPending") : text("queue.undo")}
           </button>
           <button
             className="primary-button primary-button--toolbar"
@@ -281,7 +281,7 @@ export function HostPanelPage({
                 : "Вызовет следующую заявку"
             }
           >
-            {nextMutation.isPending ? "Вызываем..." : "Вызвать следующего"}
+            {nextMutation.isPending ? text("queue.nextSongPending") : text("queue.nextSong")}
           </button>
         </div>
       </section>

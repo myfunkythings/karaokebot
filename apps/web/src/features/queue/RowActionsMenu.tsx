@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { SongRequestDto } from "@karaoke/contracts";
+import { useUiCopy } from "../../shared/ui/ui-copy";
 
 function KebabIcon() {
   return (
@@ -34,6 +35,7 @@ export function RowActionsMenu({
   onMove: (request: SongRequestDto) => void;
   onNoShow: (request: SongRequestDto) => void;
 }) {
+  const text = useUiCopy();
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -73,7 +75,7 @@ export function RowActionsMenu({
       <button
         type="button"
         className="row-actions-menu__trigger"
-        aria-label="Другие действия"
+        aria-label={text("queue.actionsLabel")}
         aria-expanded={isOpen}
         onClick={() => setIsOpen((value) => !value)}
       >
@@ -89,13 +91,13 @@ export function RowActionsMenu({
             disabled={!canManage || !canCall}
             onClick={() => runAction(() => onCall(request))}
           >
-            Вызвать сейчас
+            {text("queue.actionCall")}
           </button>
           <button type="button" className="row-actions-menu__item" role="menuitem" onClick={() => runAction(onEdit)}>
-            Редактировать
+            {text("queue.actionEdit")}
           </button>
           <button type="button" className="row-actions-menu__item" role="menuitem" onClick={() => runAction(onCopy)}>
-            Копировать "{request.rawText} караоке"
+            {text("queue.actionCopy", { request: request.rawText })}
           </button>
           <button
             type="button"
@@ -104,7 +106,7 @@ export function RowActionsMenu({
             disabled={!canManage || !canReorder}
             onClick={() => runAction(() => onDefer(request.id))}
           >
-            Отложить
+            {text("queue.actionDefer")}
           </button>
           <button
             type="button"
@@ -113,7 +115,7 @@ export function RowActionsMenu({
             disabled={!canManage || !canReorder}
             onClick={() => runAction(() => onMove(request))}
           >
-            Переместить
+            {text("queue.actionMove")}
           </button>
           <button
             type="button"
@@ -122,7 +124,7 @@ export function RowActionsMenu({
             disabled={!canManage || !canReorder}
             onClick={() => runAction(() => onNoShow(request))}
           >
-            Гость не дошёл
+            {text("queue.actionNoShow")}
           </button>
         </div>
       ) : null}

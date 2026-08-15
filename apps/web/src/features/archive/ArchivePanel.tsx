@@ -1,27 +1,29 @@
 import { SectionCard } from "@karaoke/ui";
 import type { SongRequestDto } from "@karaoke/contracts";
 import { formatDateTime, formatDurationMinutes } from "../../shared/lib/format";
+import { useUiCopy } from "../../shared/ui/ui-copy";
 
-function getArchiveStatus(item: SongRequestDto) {
+function getArchiveStatus(item: SongRequestDto, text: ReturnType<typeof useUiCopy>) {
   switch (item.outcome ?? item.status) {
     case "sung":
-      return "Спето";
+      return text("archive.statusSung");
     case "cancelled_by_host":
-      return "Отменено ведущим";
+      return text("archive.statusCancelledByHost");
     case "left_venue":
-      return "Гость ушёл";
+      return text("archive.statusLeftVenue");
     case "undone":
-      return "Отменено через возврат";
+      return text("archive.statusUndone");
     case "cancelled":
-      return "Отменено";
+      return text("archive.statusCancelled");
     default:
-      return "Завершено";
+      return text("archive.statusDone");
   }
 }
 
 export function ArchivePanel({ archive }: { archive: SongRequestDto[] }) {
+  const text = useUiCopy();
   return (
-    <SectionCard title="Архив смены">
+    <SectionCard title={text("archive.title")}>
       <div className="archive-list">
         {archive.length ? (
           archive.map((item) => (
@@ -31,20 +33,18 @@ export function ArchivePanel({ archive }: { archive: SongRequestDto[] }) {
                 <div className="muted">{item.guest.displayName}</div>
               </div>
               <div className="archive-row__meta">
-                <span>{getArchiveStatus(item)}</span>
-                <span>Заявка: {formatDateTime(item.requestedAt)}</span>
+                <span>{getArchiveStatus(item, text)}</span>
+                <span>{text("archive.requestedAt", { time: formatDateTime(item.requestedAt) })}</span>
                 <span>
-                  Ожидание:{" "}
-                  {formatDurationMinutes(
-                    item.requestedAt,
-                    item.completedAt ?? item.cancelledAt
-                  )}
+                  {text("archive.wait", {
+                    duration: formatDurationMinutes(item.requestedAt, item.completedAt ?? item.cancelledAt)
+                  })}
                 </span>
               </div>
             </article>
           ))
         ) : (
-          <div className="empty-state">Архив пока пуст.</div>
+          <div className="empty-state">{text("archive.empty")}</div>
         )}
       </div>
     </SectionCard>

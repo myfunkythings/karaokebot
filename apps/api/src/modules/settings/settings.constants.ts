@@ -1,4 +1,4 @@
-import type { GlobalSettings } from "@karaoke/contracts";
+import { DEFAULT_UI_LABELS, type GlobalSettings } from "@karaoke/contracts";
 
 export const DEFAULT_SETTINGS: GlobalSettings = {
   antiSpamSeconds: 300,
@@ -47,10 +47,5 @@ export const DEFAULT_SETTINGS: GlobalSettings = {
     telegramNextSongNotification:
       "🎤 Скоро ваш выход!\n\nПеред вами осталась одна песня. Пожалуйста, подготовьтесь и будьте рядом со сценой."
   },
-  uiLabels: {
-    next: "Следующий исполнитель",
-    defer: "Пропустить",
-    leftVenue: "Человек ушёл",
-    undo: "Отменить исполнение"
-  }
+  uiLabels: DEFAULT_UI_LABELS
 };
