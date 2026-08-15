@@ -126,6 +126,24 @@ const interfaceGroups: Array<{ id: string; title: string; description: string; f
       { key: "stats.singerSummary", label: "Статистика: строка гостя", hint: "Используйте {{sung}} и {{requests}}" },
       { key: "stats.empty", label: "Пустая статистика", hint: "Когда ещё не было исполнений" }
     ]
+  },
+  {
+    id: "public",
+    title: "Публичная очередь",
+    description: "Тексты, которые видят гости по ссылке на очередь.",
+    fields: [
+      { key: "public.priorityNotice", label: "Пояснение о порядке", hint: "Показывается над очередью и в карточке гостя" },
+      { key: "public.errorNotice", label: "Ошибка загрузки", hint: "Когда публичная очередь недоступна" },
+      { key: "public.currentPosition", label: "Текущая позиция", hint: "Вместо номера для выступающей заявки" },
+      { key: "public.viewerRequest", label: "Заявка гостя", hint: "Запасная подпись в персональном просмотре" },
+      { key: "public.viewerTitle", label: "Заголовок персональной карточки", hint: "Для гостя по персональной ссылке" },
+      { key: "public.forecastCurrent", label: "Прогноз: сейчас", hint: "Используйте {{forecast}}" },
+      { key: "public.forecastEstimated", label: "Прогноз: примерно", hint: "Используйте {{forecast}}" },
+      { key: "public.tableRequest", label: "Столбец заявки", hint: "Заголовок публичной таблицы" },
+      { key: "public.emptyTitle", label: "Пустая очередь: заголовок", hint: "Когда заявок нет" },
+      { key: "public.emptySubtitle", label: "Пустая очередь: подзаголовок", hint: "Пояснение под заголовком" },
+      { key: "public.count", label: "Счётчик заявок", hint: "Используйте {{count}}" }
+    ]
   }
 ];
 

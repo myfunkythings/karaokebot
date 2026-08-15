@@ -59,8 +59,11 @@ export class QueueService {
     channelSlug?: string | null,
     guestToken?: string | null
   ): Promise<PublicQueueSnapshotDto> {
-    const channel = await this.requestChannelsService.getRequiredChannelBySlug(channelSlug);
-    const session = await this.sessionsService.getActiveSession();
+    const [channel, session, settings] = await Promise.all([
+      this.requestChannelsService.getRequiredChannelBySlug(channelSlug),
+      this.sessionsService.getActiveSession(),
+      this.settingsService.getGlobalSettings(channelSlug ?? "main")
+    ]);
 
     if (!session) {
       return {
@@ -68,6 +71,7 @@ export class QueueService {
         activeChannel: {
           color: channel.color
         },
+        uiLabels: this.getPublicUiLabels(settings.uiLabels),
         current: null,
         queued: [],
         viewer: null,
@@ -148,6 +152,7 @@ export class QueueService {
       activeChannel: {
         color: channel.color
       },
+      uiLabels: this.getPublicUiLabels(settings.uiLabels),
       current: currentDto,
       queued: queuedDto,
       viewer: viewerGuestId
@@ -176,6 +181,14 @@ export class QueueService {
       },
       updatedAt: new Date().toISOString()
     };
+  }
+
+  private getPublicUiLabels(labels: Record<string, string>) {
+    return Object.fromEntries(
+      Object.entries(labels).filter(
+        ([key]) => key.startsWith("public.") || key === "queue.shiftActive" || key === "queue.shiftInactive"
+      )
+    );
   }
 
   async getSnapshot(

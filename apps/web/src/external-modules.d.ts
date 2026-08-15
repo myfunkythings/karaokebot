@@ -136,6 +136,7 @@ declare module "@karaoke/contracts" {
   export type PublicQueueSnapshotDto = {
     isOpen: boolean;
     activeChannel: Pick<RequestChannelDto, "color">;
+    uiLabels: Record<string, string>;
     current: PublicSongRequestDto | null;
     queued: PublicSongRequestDto[];
     viewer: {

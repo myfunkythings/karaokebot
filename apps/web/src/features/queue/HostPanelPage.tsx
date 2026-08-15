@@ -222,9 +222,9 @@ export function HostPanelPage({
         }
       >
         <div className="host-console-bar__admin">
-          <span>Админка</span>
+          <span>{text("admin.label")}</span>
           <strong>
-            {snapshot.channels.find((channel) => channel.slug === snapshot.activeChannelSlug)?.name ?? "Основной бот"}
+            {snapshot.channels.find((channel) => channel.slug === snapshot.activeChannelSlug)?.name ?? text("admin.defaultChannel")}
           </strong>
         </div>
 
@@ -239,8 +239,8 @@ export function HostPanelPage({
           </label>
           <span className="queue-count-chip">
             {queueSearch
-              ? `${filteredRequests.length} из ${snapshot.queued.length}`
-              : `${snapshot.queued.length} заявок`}
+              ? text("admin.queueCount", { shown: filteredRequests.length, total: snapshot.queued.length })
+              : text("admin.queueCountSingle", { count: snapshot.queued.length })}
           </span>
           {queueSearch ? (
             <button className="ghost-button ghost-button--compact" onClick={onClearSearch} type="button">
@@ -251,13 +251,13 @@ export function HostPanelPage({
 
         <div className="operational-toolbar__facts">
           <div className="operational-toolbar__fact">
-            <span>Сейчас</span>
-            <strong>{snapshot.current?.guest.displayName ?? "Сцена свободна"}</strong>
+            <span>{text("admin.nowLabel")}</span>
+            <strong>{snapshot.current?.guest.displayName ?? text("admin.stageFree")}</strong>
             <small className="operational-toolbar__fact-meta">{getRequestSongLabel(snapshot.current)}</small>
           </div>
           <div className="operational-toolbar__fact">
-            <span>Следующий</span>
-            <strong>{nextRequest?.guest.displayName ?? "Очередь пуста"}</strong>
+            <span>{text("admin.nextLabel")}</span>
+            <strong>{nextRequest?.guest.displayName ?? text("admin.queueEmpty")}</strong>
             <small className="operational-toolbar__fact-meta">{getRequestSongLabel(nextRequest)}</small>
           </div>
         </div>
@@ -277,8 +277,8 @@ export function HostPanelPage({
             type="button"
             title={
               snapshot.current
-                ? "Завершит текущий номер и вызовет следующего"
-                : "Вызовет следующую заявку"
+                ? text("admin.nextTitleCurrent")
+                : text("admin.nextTitleEmpty")
             }
           >
             {nextMutation.isPending ? text("queue.nextSongPending") : text("queue.nextSong")}
@@ -290,7 +290,7 @@ export function HostPanelPage({
         <section className="operator-conflict-banner">
           <span>{conflictMessage}</span>
           <button type="button" onClick={() => setConflictMessage(null)}>
-            Понятно
+            {text("admin.conflictDismiss")}
           </button>
         </section>
       ) : null}

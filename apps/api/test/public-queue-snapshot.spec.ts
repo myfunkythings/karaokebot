@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { QueueService } from "../src/modules/queue/queue.service.js";
 import { createPublicQueueGuestToken } from "../src/modules/telegram/public-queue-guest-token.js";
+import { DEFAULT_UI_LABELS } from "@karaoke/contracts";
 
 const tokenSecret = "test-session-secret";
 
@@ -98,6 +99,9 @@ function createService() {
   const requestChannelsService = {
     getRequiredChannelBySlug: vi.fn().mockResolvedValue(channel)
   };
+  const settingsService = {
+    getGlobalSettings: vi.fn().mockResolvedValue({ uiLabels: DEFAULT_UI_LABELS })
+  };
   const configService = {
     get: vi.fn((key: string) => (key === "SESSION_SECRET" ? tokenSecret : undefined))
   };
@@ -106,7 +110,7 @@ function createService() {
     prisma as never,
     {} as never,
     sessionsService as never,
-    {} as never,
+    settingsService as never,
     requestChannelsService as never,
     {} as never,
     configService as never

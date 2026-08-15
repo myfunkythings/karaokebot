@@ -1,14 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
-import type { PublicQueueSnapshotDto, PublicSongRequestDto } from "@karaoke/contracts";
+import {
+  DEFAULT_UI_LABELS,
+  type PublicQueueSnapshotDto,
+  type PublicSongRequestDto
+} from "@karaoke/contracts";
 import { Navigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../shared/api/client";
 import { getActiveBotProfile, getBotProfileBySlug } from "../app/botProfiles";
+import { UiCopyProvider, useUiCopy } from "../shared/ui/ui-copy";
 
 const mockPublicQueueSnapshot: PublicQueueSnapshotDto = {
   isOpen: true,
   activeChannel: {
     color: "#203B47"
   },
+  uiLabels: DEFAULT_UI_LABELS,
   current: {
     position: null,
     rawText: "Queen - The Show Must Go On",
@@ -104,12 +110,12 @@ function formatRequest(request: PublicSongRequestDto) {
   return request.rawText;
 }
 
-function formatViewerForecastSentence(forecastText: string) {
+function formatViewerForecastSentence(forecastText: string, text: ReturnType<typeof useUiCopy>) {
   if (forecastText.startsWith("примерно")) {
-    return `Сейчас ваша песня прогнозно ${forecastText}.`;
+    return text("public.forecastEstimated", { forecast: forecastText });
   }
 
-  return `Сейчас ваша песня: ${forecastText}.`;
+  return text("public.forecastCurrent", { forecast: forecastText });
 }
 
 function PublicQueueBrand({ profile }: { profile: ReturnType<typeof getActiveBotProfile> }) {
@@ -121,6 +127,7 @@ function PublicQueueBrand({ profile }: { profile: ReturnType<typeof getActiveBot
 }
 
 function PublicQueueRow({ request, isNext = false }: { request: PublicSongRequestDto; isNext?: boolean }) {
+  const text = useUiCopy();
   const rowClassName = [
     "public-queue-row",
     request.status === "current" ? "public-queue-row--current" : "",
@@ -133,12 +140,12 @@ function PublicQueueRow({ request, isNext = false }: { request: PublicSongReques
   return (
     <tr className={rowClassName}>
       <td className="public-queue-table__position">
-        <span>{request.position ?? "Сейчас"}</span>
+        <span>{request.position ?? text("public.currentPosition")}</span>
       </td>
       <td className="public-queue-table__request">
         <strong>{formatRequest(request)}</strong>
         {request.isViewerRequest ? (
-          <span>{request.forecastText ?? "Ваша заявка"}</span>
+          <span>{request.forecastText ?? text("public.viewerRequest")}</span>
         ) : null}
       </td>
     </tr>
@@ -192,6 +199,18 @@ export function PublicQueuePage() {
     );
   }
 
+  return <UiCopyProvider labels={snapshot.uiLabels}><PublicQueueContent snapshot={snapshot} activeProfile={activeProfile} /></UiCopyProvider>;
+}
+
+function PublicQueueContent({
+  snapshot,
+  activeProfile
+}: {
+  snapshot: PublicQueueSnapshotDto;
+  activeProfile: ReturnType<typeof getActiveBotProfile>;
+}) {
+  const text = useUiCopy();
+
   return (
     <main className={`page-shell public-queue-page ${activeProfile.themeClassName}`}>
       <section className="host-panel-page public-queue-shell">
@@ -199,7 +218,7 @@ export function PublicQueuePage() {
           <div className="host-console-bar__admin">
             <PublicQueueBrand profile={activeProfile} />
             <span>
-              Позиции прогнозные. Это не финальное место: очередь пересчитывается после новых заявок и выступлений.
+              {text("public.priorityNotice")}
             </span>
           </div>
 
@@ -209,19 +228,18 @@ export function PublicQueuePage() {
                 className="request-channel-badge__dot"
                 style={{ background: snapshot.activeChannel.color ?? "#58707b" }}
               />
-              {snapshot.isOpen ? "Смена идёт" : "Смена не открыта"}
+              {snapshot.isOpen ? text("queue.shiftActive") : text("queue.shiftInactive")}
             </span>
-            <span className="queue-count-chip">{snapshot.stats.queuedCount} заявок</span>
+            <span className="queue-count-chip">{text("public.count", { count: snapshot.stats.queuedCount })}</span>
           </div>
         </div>
 
         {snapshot.viewer?.nearestRequest ? (
           <section className="public-queue-viewer-card">
-            <span>Ваша ближайшая песня</span>
+            <span>{text("public.viewerTitle")}</span>
             <strong>{formatRequest(snapshot.viewer.nearestRequest)}</strong>
             <p>
-              {formatViewerForecastSentence(snapshot.viewer.nearestRequest.forecastText)} Это не финальное место:
-              очередь пересчитывается после новых заявок и выступлений.
+              {formatViewerForecastSentence(snapshot.viewer.nearestRequest.forecastText, text)} {text("public.priorityNotice")}
             </p>
           </section>
         ) : null}
@@ -232,7 +250,7 @@ export function PublicQueuePage() {
               <thead>
                 <tr>
                   <th className="queue-table__col-index">#</th>
-                  <th className="queue-table__col-request">Заявка</th>
+                  <th className="queue-table__col-request">{text("public.tableRequest")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -247,8 +265,8 @@ export function PublicQueuePage() {
                 {!snapshot.current && !snapshot.queued.length ? (
                   <tr>
                     <td className="queue-table__empty" colSpan={2}>
-                      <strong>Очередь пока пустая.</strong>
-                      <span>Заявки появятся здесь сразу после отправки.</span>
+                      <strong>{text("public.emptyTitle")}</strong>
+                      <span>{text("public.emptySubtitle")}</span>
                     </td>
                   </tr>
                 ) : null}

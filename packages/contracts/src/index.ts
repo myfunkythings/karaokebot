@@ -145,7 +145,30 @@ export const DEFAULT_UI_LABELS: Record<string, string> = {
   "stats.averageWaitValue": "{{minutes}} мин",
   "stats.topSingers": "Кто уже пел чаще всего",
   "stats.singerSummary": "{{sung}} выход(а) на сцену из {{requests}} заявок",
-  "stats.empty": "Статистика по гостям появится после первых исполнений."
+  "stats.empty": "Статистика по гостям появится после первых исполнений.",
+  "admin.label": "Админка",
+  "admin.defaultChannel": "Основной бот",
+  "admin.queueCount": "{{shown}} из {{total}}",
+  "admin.queueCountSingle": "{{count}} заявок",
+  "admin.nowLabel": "Сейчас",
+  "admin.nextLabel": "Следующий",
+  "admin.stageFree": "Сцена свободна",
+  "admin.queueEmpty": "Очередь пуста",
+  "admin.nextTitleCurrent": "Завершит текущий номер и вызовет следующего",
+  "admin.nextTitleEmpty": "Вызовет следующую заявку",
+  "admin.conflictDismiss": "Понятно",
+  "public.loading": "Загружаем очередь...",
+  "public.priorityNotice": "Позиции прогнозные. Это не финальное место: очередь пересчитывается после новых заявок и выступлений.",
+  "public.errorNotice": "Не удалось загрузить очередь. Обновите страницу чуть позже.",
+  "public.currentPosition": "Сейчас",
+  "public.viewerRequest": "Ваша заявка",
+  "public.viewerTitle": "Ваша ближайшая песня",
+  "public.forecastCurrent": "Сейчас ваша песня: {{forecast}}.",
+  "public.forecastEstimated": "Сейчас ваша песня прогнозно {{forecast}}.",
+  "public.tableRequest": "Заявка",
+  "public.emptyTitle": "Очередь пока пустая.",
+  "public.emptySubtitle": "Заявки появятся здесь сразу после отправки.",
+  "public.count": "{{count}} заявок"
 };
 
 export type GlobalSettings = {
@@ -217,6 +240,7 @@ export type PublicSongRequestDto = {
 export type PublicQueueSnapshotDto = {
   isOpen: boolean;
   activeChannel: Pick<RequestChannelDto, "color">;
+  uiLabels: Record<string, string>;
   current: PublicSongRequestDto | null;
   queued: PublicSongRequestDto[];
   viewer: {
